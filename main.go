@@ -6,7 +6,6 @@ import (
 	"github.com/deferpanic/dpcli/api"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"strconv"
@@ -249,12 +248,9 @@ func pull(projectName string) {
 
 func main() {
 
-	b, err := ioutil.ReadFile("dp.txt")
-	if err != nil {
-		log.Fatal(err)
+	if len(os.Args) < 2 {
+		fmt.Printf(logo)
 	}
-	fmt.Printf("%s", b)
-
 	setToken()
 
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
