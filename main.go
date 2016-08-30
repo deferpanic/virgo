@@ -112,7 +112,7 @@ func run(project string) {
 
 	ip := "10.1.2.4"
 
-	appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  },, " + blocks + " \\\"cmdline\\\": \\\"" + manifest.Processes[0].Cmdline + "\\\"}"
+	appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  \\\"gw\\\":\\\"10.1.2.3\\\"},, " + blocks + " \\\"cmdline\\\": \\\"" + manifest.Processes[0].Cmdline + "\\\"}"
 
 	home := os.Getenv("HOME")
 	projPath := home + "/.virgo/projects/" + project
@@ -139,6 +139,7 @@ func run(project string) {
 	fmt.Println(api.GreenBold("open up http://" + ip + ":3000"))
 }
 
+// setToken sets your dprc token for pulling down images from deferpanic
 func setToken() {
 	dat, err := ioutil.ReadFile(os.Getenv("HOME") + "/.dprc")
 	if err != nil {
@@ -249,7 +250,7 @@ func pull(projectName string) {
 func main() {
 
 	if len(os.Args) < 2 {
-		fmt.Printf(logo)
+		fmt.Println(logo)
 	}
 	setToken()
 
