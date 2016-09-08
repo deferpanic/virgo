@@ -38,13 +38,20 @@ virgo run html
 virgo kill html
 ```
 
+##Fetch the log for the Unikernel Project:
+```
+virgo log html
+```
+
 ##List the Running Unikernels:
 ```
 virgo ps
 ```
 
 ##Dependencies:
-This has only been tested on El Capitan OSX. For bridge/outgoing
+This works on OSX and Linux.
+
+For OSX - this has only been tested on El Capitan. For bridge/outgoing
 connections you'll want to pay attention to this section.
 
 It's known to work on {10.11.4, 10.11.5, 10.11.6}.
