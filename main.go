@@ -112,12 +112,20 @@ func run(project string) {
 
 	ip := "10.1.2.4"
 
-	appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  \\\"gw\\\":\\\"10.1.2.3\\\"},, " + blocks + " \\\"cmdline\\\": \\\"" + manifest.Processes[0].Cmdline + "\\\"}"
+	appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  \\\"gw\\\":\\\"10.1.2.3\\\"},, " + blocks + " \\\"cmdline\\\": \\\"" + manifest.Processes[0].Cmdline + "\\\"}\""
 
 	home := os.Getenv("HOME")
 	projPath := home + "/.virgo/projects/" + project
 	tm := time.Now().Unix()
 	pidLn := projPath + "/pids/" + strconv.FormatInt(tm, 10) + ".pid"
+
+	bootLine := ""
+	kpath := home + "/.virgo/projects/" + project + "/kernel/" + project
+	if manifest.Processes[0].Multiboot {
+		bootLine = " -kernel " + kpath + " -append " + appendLn
+	} else {
+		bootLine = " -hda " + kpath
+	}
 
 	cmd := `sudo qemu-system-x86_64 ` +
 		drives +
@@ -125,8 +133,8 @@ func run(project string) {
 		" -m " + strconv.Itoa(manifest.Processes[0].Memory) +
 		"  -net nic,model=virtio,vlan=0,macaddr=00:16:3e:00:01:01 " +
 		" -net tap,vlan=0,script=ifup.sh,downscript=ifdown.sh " +
-		" -kernel " + home + "/.virgo/projects/" + project + "/kernel/" + project +
-		" -append  " + appendLn + "\" & echo $! >> " + pidLn
+		bootLine +
+		" & echo $! >> " + pidLn
 	go func() {
 		runCmd(cmd)
 	}()
