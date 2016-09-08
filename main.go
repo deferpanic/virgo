@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/deferpanic/dpcli/api"
@@ -8,14 +9,18 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
 var (
-	token string
-	app   = kingpin.New("virgo", "Run Unikernels Locally")
+	token  string
+	hostOS string
+
+	app = kingpin.New("virgo", "Run Unikernels Locally")
 
 	pullCommand     = app.Command("pull", "Pull a project")
 	pullCommandName = pullCommand.Arg("name", "Project name.").Required().String()
@@ -25,6 +30,9 @@ var (
 
 	killCommand     = app.Command("kill", "Kill a project")
 	killCommandName = killCommand.Arg("name", "Project name.").Required().String()
+
+	logCommand     = app.Command("log", "Fetch log of project")
+	logCommandName = logCommand.Arg("name", "Project name.").Required().String()
 
 	psCommand = app.Command("ps", "List running projects")
 )
@@ -39,48 +47,27 @@ func runCmd(cmd string) string {
 	return string(out)
 }
 
-// osCheck ensures we are dealing with el capitan or above
-func osCheck() {
-	// osx version
-	out := strings.TrimSpace(runCmd("sw_vers -productVersion"))
-	if out == "10.11.4" {
-		fmt.Println(api.GreenBold("found supported osx version"))
-	} else if out == "10.11.5" {
-		fmt.Println(api.GreenBold("found supported osx version"))
-	} else if out == "10.11.6" {
-		fmt.Println(api.GreenBold("found supported osx version"))
-	} else {
-		fmt.Println(out)
-		fmt.Println(api.RedBold("This is only tested on El Capitan - 10.11.4. pf_ctl is used. If using an earlier osx you might need to use natd"))
-		os.Exit(1)
-	}
-}
+func runAsyncCmd(cmd string) {
+	command := exec.Command("/bin/bash", "-c", cmd)
+	randomBytes := &bytes.Buffer{}
+	command.Stdout = randomBytes
+	command.Stderr = randomBytes
+	// Start command asynchronously
+	command.SysProcAttr = &syscall.SysProcAttr{}
+	command.SysProcAttr.Setsid = true
+	command.Start()
 
-func qemuCheck() {
-	out := strings.TrimSpace(runCmd("which qemu-system-x86_64"))
-	if out == "qemu-system-x86_64 not found" {
-		fmt.Println(api.RedBold("qemu not found - installing..."))
-		runCmd("brew install qemu")
-	} else {
-		fmt.Println(api.GreenBold("found qemu"))
-	}
-}
-
-func tuntapCheck() {
-	out := strings.TrimSpace(runCmd("sudo kextstat | grep tap"))
-	if out != "" {
-		fmt.Println(api.GreenBold("found tuntap support"))
-	} else {
-		fmt.Println(api.RedBold("Please download and install tuntaposx"))
-		fmt.Println(api.RedBold("wget http://downloads.sourceforge.net/tuntaposx/tuntap_20150118.tar.gz"))
-		os.Exit(1)
-	}
+	//out = randomBytes.Bytes()
 }
 
 func depcheck() {
-	osCheck()
-	qemuCheck()
-	tuntapCheck()
+	if runtime.GOOS == "darwin" {
+		osCheck()
+		qemuCheck()
+		tuntapCheck()
+	}
+	if runtime.GOOS == "linux" {
+	}
 }
 
 // createQemuBlocks returns the set of blocks && lines
@@ -117,7 +104,7 @@ func run(project string) {
 	home := os.Getenv("HOME")
 	projPath := home + "/.virgo/projects/" + project
 	tm := time.Now().Unix()
-	pidLn := projPath + "/pids/" + strconv.FormatInt(tm, 10) + ".pid"
+	pidLn := projPath + "/pids/" + strconv.FormatInt(tm, 10) + ".pid "
 
 	bootLine := ""
 	kpath := home + "/.virgo/projects/" + project + "/kernel/" + project
@@ -135,14 +122,22 @@ func run(project string) {
 		" -net tap,vlan=0,script=ifup.sh,downscript=ifdown.sh " +
 		bootLine +
 		" & echo $! >> " + pidLn
+
+	done := make(chan bool)
+
 	go func() {
-		runCmd(cmd)
+		runAsyncCmd(cmd)
+		done <- true
 	}()
 
-	fmt.Println(api.GreenBold("setting sysctl"))
-	runCmd("sudo sysctl -w net.inet.ip.forwarding=1")
-	runCmd("sudo sysctl -w net.link.ether.inet.proxyall=1")
-	runCmd("sudo sysctl -w net.inet.ip.fw.enable=1")
+	<-done
+
+	if runtime.GOOS == "darwin" {
+		fmt.Println(api.GreenBold("setting sysctl"))
+		runCmd("sudo sysctl -w net.inet.ip.forwarding=1")
+		runCmd("sudo sysctl -w net.link.ether.inet.proxyall=1")
+		runCmd("sudo sysctl -w net.inet.ip.fw.enable=1")
+	}
 
 	fmt.Println(api.GreenBold("open up http://" + ip + ":3000"))
 }
@@ -214,6 +209,14 @@ func kill(projectName string) {
 	runCmd("rm -rf " + projPath + "/pids/*")
 }
 
+// log for now just does a cat of the logs
+func log(projectName string) {
+	projPath := "~/.virgo/projects/" + projectName
+
+	logz := runCmd("cat " + projPath + "/logs/*")
+	fmt.Println(logz)
+}
+
 // ps lists the running projects
 func ps() {
 	linez := runCmd("find ~/.virgo/projects/*/pids  -type f")
@@ -272,6 +275,8 @@ func main() {
 		ps()
 	case "kill":
 		kill(*killCommandName)
+	case "log":
+		log(*logCommandName)
 	}
 
 }
