@@ -89,6 +89,16 @@ func createQemuBlocks(project string, manifest api.Manifest) (string, string) {
 	return blocks, drives
 }
 
+func formatEnvs(menv string) string {
+	env := ""
+	envs := strings.Split(menv, " ")
+	for i := 0; i < len(envs); i++ {
+		env += "\\\"env\\\": \\\"" + envs[i] + "\\\",,"
+	}
+
+	return env
+}
+
 // run runs the unikernel on osx || linux
 // locked down to one instance for now
 func run(project string) {
@@ -97,9 +107,11 @@ func run(project string) {
 
 	blocks, drives := createQemuBlocks(project, manifest)
 
+	env := formatEnvs(manifest.Processes[0].Env)
+
 	ip := "10.1.2.4"
 
-	appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  \\\"gw\\\":\\\"10.1.2.3\\\"},, " + blocks + " \\\"cmdline\\\": \\\"" + manifest.Processes[0].Cmdline + "\\\"}\""
+	appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  \\\"gw\\\":\\\"10.1.2.3\\\"},, " + env + blocks + " \\\"cmdline\\\": \\\"" + manifest.Processes[0].Cmdline + "\\\"}\""
 
 	home := os.Getenv("HOME")
 	projPath := home + "/.virgo/projects/" + project
