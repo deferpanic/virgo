@@ -37,6 +37,7 @@ var (
 	psCommand = app.Command("ps", "List running projects")
 )
 
+// runCmd runs a shell command and returns any stderr/stdout
 func runCmd(cmd string) string {
 	out, err := exec.Command("/bin/bash", "-c", cmd).CombinedOutput()
 	if err != nil {
@@ -52,18 +53,20 @@ func runAsyncCmd(cmd string) {
 	randomBytes := &bytes.Buffer{}
 	command.Stdout = randomBytes
 	command.Stderr = randomBytes
+
 	// Start command asynchronously
 	command.SysProcAttr = &syscall.SysProcAttr{}
 	command.SysProcAttr.Setsid = true
 	command.Start()
-
-	//out = randomBytes.Bytes()
 }
 
+// depcheck does a quick dependency check to ensure
+// that all required deps are installed - some auto-install
 func depcheck() {
 	if runtime.GOOS == "darwin" {
 		osCheck()
 		qemuCheck()
+		cpulimitCheck()
 		tuntapCheck()
 	}
 	if runtime.GOOS == "linux" {
@@ -89,6 +92,8 @@ func createQemuBlocks(project string, manifest api.Manifest) (string, string) {
 	return blocks, drives
 }
 
+// formatEnvs returns the env variables in the format expected for
+// rumpkernels
 func formatEnvs(menv string) string {
 	env := ""
 	envs := strings.Split(menv, " ")
@@ -178,6 +183,11 @@ func readManifest(projectName string) api.Manifest {
 	mpath := os.Getenv("HOME") + "/.virgo/projects/" + projectName + "/" +
 		projectName + ".manifest"
 
+	if _, err := os.Stat(mpath); os.IsNotExist(err) {
+		fmt.Println(api.RedBold("can't find " + projectName + " manifest - does it exist?"))
+		os.Exit(1)
+	}
+
 	file, e := ioutil.ReadFile(mpath)
 	if e != nil {
 		fmt.Printf("File error: %v\n", e)
@@ -213,12 +223,16 @@ func setupProjDir(projPath string) {
 // same kind running and to kill them all - not sure why that would be
 // the case but eh
 func kill(projectName string) {
-	projPath := "~/.virgo/projects/" + projectName
+	projPath := os.Getenv("HOME") + "/.virgo/projects/" + projectName
+
+	if _, err := os.Stat(projPath); os.IsNotExist(err) {
+		fmt.Println(api.RedBold("can't find " + projectName + " - does it exist?"))
+		os.Exit(1)
+	}
 
 	pidstr := runCmd("cat " + projPath + "/pids/*")
 	pids := strings.Split(pidstr, "\n")
 	for i := 0; i < len(pids)-1; i++ {
-		fmt.Println(pids[i])
 		runCmd("sudo pkill -P " + pids[i])
 	}
 	runCmd("rm -rf " + projPath + "/pids/*")
@@ -252,7 +266,12 @@ func pull(projectName string) {
 
 	// get manifest
 	projs := &api.Projects{}
-	projs.Manifest(projectName)
+	err := projs.Manifest(projectName)
+	if err != nil {
+		fmt.Println(api.RedBold(err.Error()))
+		os.Exit(1)
+	}
+
 	runCmd("mv " + projectName + ".manifest " + projPath)
 
 	// download images
