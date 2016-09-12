@@ -107,7 +107,10 @@ func run(project string) {
 
 	blocks, drives := createQemuBlocks(project, manifest)
 
-	env := formatEnvs(manifest.Processes[0].Env)
+	env := ""
+	if manifest.Processes[0].Env != "" {
+		env = formatEnvs(manifest.Processes[0].Env)
+	}
 
 	ip := "10.1.2.4"
 
