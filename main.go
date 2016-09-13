@@ -34,7 +34,13 @@ var (
 	logCommand     = app.Command("log", "Fetch log of project")
 	logCommandName = logCommand.Arg("name", "Project name.").Required().String()
 
+	signupCommand  = app.Command("signup", "Signup")
+	signupEmail    = signupCommand.Arg("email", "Email.").Required().String()
+	signupPassword = signupCommand.Arg("password", "Password.").Required().String()
+
 	psCommand = app.Command("ps", "List running projects")
+
+	imagesCommand = app.Command("images", "List all projects")
 )
 
 // runCmd runs a shell command and returns any stderr/stdout
@@ -78,15 +84,13 @@ func createQemuBlocks(project string, manifest api.Manifest) (string, string) {
 	blocks := ""
 	drives := ""
 
-	home := os.Getenv("HOME")
-
 	// locked down to one process for now
 	volz := manifest.Processes[0].Volumes
 	for i := 0; i < len(volz); i++ {
 		blocks += "\\\"blk\\\" :  { \\\"source\\\":\\\"dev\\\",,  \\\"path\\\":\\\"/dev/ld" +
 			strconv.Itoa(i) + "a\\\",, \\\"fstype\\\":\\\"blk\\\",, \\\"mountpoint\\\":\\\"" +
 			volz[i].Mount + "\\\"},, "
-		drives += " -drive if=virtio,file=" + home + "/.virgo/projects/" + project + "/volumes/vol" + strconv.Itoa(volz[i].Id) + ",format=raw "
+		drives += " -drive if=virtio,file=" + projRoot + project + "/volumes/vol" + strconv.Itoa(volz[i].Id) + ",format=raw "
 	}
 
 	return blocks, drives
@@ -104,6 +108,17 @@ func formatEnvs(menv string) string {
 	return env
 }
 
+// kvmEnabled returns true if kvm is available
+func kvmEnabled() bool {
+	cmd := "egrep '(vmx|svm)' /proc/cpuinfo"
+	out := strings.TrimSpace(runCmd(cmd))
+	if out == "" {
+		return false
+	} else {
+		return true
+	}
+}
+
 // run runs the unikernel on osx || linux
 // locked down to one instance for now
 func run(project string) {
@@ -118,29 +133,46 @@ func run(project string) {
 	}
 
 	ip := "10.1.2.4"
+	gw := "10.1.2.3"
 
-	appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  \\\"gw\\\":\\\"10.1.2.3\\\"},, " + env + blocks + " \\\"cmdline\\\": \\\"" + manifest.Processes[0].Cmdline + "\\\"}\""
+	appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  \\\"gw\\\":\\\"" + gw + "\\\"},, " + env + blocks + " \\\"cmdline\\\": \\\"" + manifest.Processes[0].Cmdline + "\\\"}\""
 
-	home := os.Getenv("HOME")
-	projPath := home + "/.virgo/projects/" + project
+	projPath := projRoot + project
 	tm := time.Now().Unix()
 	pidLn := projPath + "/pids/" + strconv.FormatInt(tm, 10) + ".pid "
 
+	kpath := projRoot + project + "/kernel/"
+	if strings.Contains(project, "/") {
+		s := strings.Split(project, "/")[1]
+		kpath += s
+	} else {
+		kpath += project
+	}
+
 	bootLine := ""
-	kpath := home + "/.virgo/projects/" + project + "/kernel/" + project
+
 	if manifest.Processes[0].Multiboot {
 		bootLine = " -kernel " + kpath + " -append " + appendLn
 	} else {
 		bootLine = " -hda " + kpath
 	}
 
-	cmd := `sudo qemu-system-x86_64 ` +
-		drives +
+	kflag := "-no-kvm"
+	if runtime.GOOS == "linux" {
+		if kvmEnabled() {
+			kflag = "-enable-kvm"
+		}
+	}
+
+	setupNetwork(projPath)
+
+	networkLine := "  -net nic,model=virtio,vlan=0,macaddr=00:16:3e:00:01:01 " +
+		" -net tap,vlan=0,script=" + projPath + "/ifup.sh,downscript=" + projPath + "/ifdown.sh "
+
+	cmd := "sudo qemu-system-x86_64 " + kflag + drives +
 		" -nographic -vga none -serial file:" + projPath + "/logs/blah.log" +
 		" -m " + strconv.Itoa(manifest.Processes[0].Memory) +
-		"  -net nic,model=virtio,vlan=0,macaddr=00:16:3e:00:01:01 " +
-		" -net tap,vlan=0,script=ifup.sh,downscript=ifdown.sh " +
-		bootLine +
+		networkLine + bootLine +
 		" & echo $! >> " + pidLn
 
 	done := make(chan bool)
@@ -180,8 +212,13 @@ func setToken() {
 
 // readManifest de-serializes the project manifest
 func readManifest(projectName string) api.Manifest {
-	mpath := os.Getenv("HOME") + "/.virgo/projects/" + projectName + "/" +
-		projectName + ".manifest"
+	pName := projectName
+	if strings.Contains(pName, "/") {
+		pName = strings.Split(pName, "/")[1]
+	}
+
+	mpath := projRoot + projectName + "/" +
+		pName + ".manifest"
 
 	if _, err := os.Stat(mpath); os.IsNotExist(err) {
 		fmt.Println(api.RedBold("can't find " + projectName + " manifest - does it exist?"))
@@ -190,7 +227,7 @@ func readManifest(projectName string) api.Manifest {
 
 	file, e := ioutil.ReadFile(mpath)
 	if e != nil {
-		fmt.Printf("File error: %v\n", e)
+		fmt.Println(api.RedBold("Missing Manifest for " + projectName))
 		os.Exit(1)
 	}
 
@@ -223,7 +260,7 @@ func setupProjDir(projPath string) {
 // same kind running and to kill them all - not sure why that would be
 // the case but eh
 func kill(projectName string) {
-	projPath := os.Getenv("HOME") + "/.virgo/projects/" + projectName
+	projPath := projRoot + projectName
 
 	if _, err := os.Stat(projPath); os.IsNotExist(err) {
 		fmt.Println(api.RedBold("can't find " + projectName + " - does it exist?"))
@@ -236,11 +273,12 @@ func kill(projectName string) {
 		runCmd("sudo pkill -P " + pids[i])
 	}
 	runCmd("rm -rf " + projPath + "/pids/*")
+	runCmd("rm -rf " + projPath + "/*.sh")
 }
 
 // log for now just does a cat of the logs
 func log(projectName string) {
-	projPath := "~/.virgo/projects/" + projectName
+	projPath := projRoot + projectName
 
 	logz := runCmd("cat " + projPath + "/logs/*")
 	fmt.Println(logz)
@@ -260,7 +298,17 @@ func ps() {
 // the project contains the kernel, any volumes attached to the project
 // and the project manifest
 func pull(projectName string) {
-	projPath := "~/.virgo/projects/" + projectName
+	community := false
+	projUser := ""
+	projName := projectName
+	if strings.Contains(projectName, "/") {
+		community = true
+		s := strings.Split(projectName, "/")
+		projUser = s[0]
+		projName = s[1]
+	}
+
+	projPath := projRoot + projectName
 
 	setupProjDir(projPath)
 
@@ -272,11 +320,18 @@ func pull(projectName string) {
 		os.Exit(1)
 	}
 
-	runCmd("mv " + projectName + ".manifest " + projPath)
+	name := strings.Replace(projectName, "/", "_", -1)
+	runCmd("mv " + name + ".manifest " + projPath + "/" + projName + ".manifest")
 
-	// download images
-	projs.Download(projectName)
-	runCmd("mv " + projectName + " " + projPath + "/kernel/.")
+	// download kernel
+	if community {
+		projs.DownloadCommunity(projName, projUser)
+		runCmd("mv " + projName + " " + projPath + "/kernel/" + projName)
+	} else {
+		projs.Download(projName)
+		runCmd("mv " + projectName + " " + projPath + "/kernel/.")
+
+	}
 
 	manifest := readManifest(projectName)
 
@@ -297,7 +352,12 @@ func main() {
 	if len(os.Args) < 2 {
 		fmt.Println(logo)
 	}
-	setToken()
+
+	if len(os.Args) > 1 && os.Args[1] == "signup" {
+		api.Cli = api.NewCliImplementation("")
+	} else {
+		setToken()
+	}
 
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 	case "pull":
@@ -307,10 +367,15 @@ func main() {
 		run(*runCommandName)
 	case "ps":
 		ps()
+	case "images":
+		images()
 	case "kill":
 		kill(*killCommandName)
 	case "log":
 		log(*logCommandName)
+	case "signup":
+		users := &api.Users{}
+		users.Create(*signupEmail, *signupPassword)
 	}
 
 }
