@@ -24,6 +24,18 @@ func osCheck() {
 	}
 }
 
+// cpulimitCheck looks for cpulimit which helps languages that use a lot
+// of cpu
+func cpulimitCheck() {
+	out := strings.TrimSpace(runCmd("/usr/bin/which cpulimit"))
+	if out == "" {
+		fmt.Println(api.RedBold("cpulimit not found - installing..."))
+		runCmd("brew install cpulimit")
+	} else {
+		fmt.Println(api.GreenBold("found cpulimit"))
+	}
+}
+
 func qemuCheck() {
 	out := strings.TrimSpace(runCmd("which qemu-system-x86_64"))
 	if out == "qemu-system-x86_64 not found" {

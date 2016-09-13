@@ -43,6 +43,7 @@ var (
 	imagesCommand = app.Command("images", "List all projects")
 )
 
+// runCmd runs a shell command and returns any stderr/stdout
 func runCmd(cmd string) string {
 	out, err := exec.Command("/bin/bash", "-c", cmd).CombinedOutput()
 	if err != nil {
@@ -58,18 +59,20 @@ func runAsyncCmd(cmd string) {
 	randomBytes := &bytes.Buffer{}
 	command.Stdout = randomBytes
 	command.Stderr = randomBytes
+
 	// Start command asynchronously
 	command.SysProcAttr = &syscall.SysProcAttr{}
 	command.SysProcAttr.Setsid = true
 	command.Start()
-
-	//out = randomBytes.Bytes()
 }
 
+// depcheck does a quick dependency check to ensure
+// that all required deps are installed - some auto-install
 func depcheck() {
 	if runtime.GOOS == "darwin" {
 		osCheck()
 		qemuCheck()
+		cpulimitCheck()
 		tuntapCheck()
 	}
 	if runtime.GOOS == "linux" {
@@ -93,6 +96,8 @@ func createQemuBlocks(project string, manifest api.Manifest) (string, string) {
 	return blocks, drives
 }
 
+// formatEnvs returns the env variables in the format expected for
+// rumpkernels
 func formatEnvs(menv string) string {
 	env := ""
 	envs := strings.Split(menv, " ")
@@ -213,6 +218,11 @@ func readManifest(projectName string) api.Manifest {
 	mpath := projRoot + projectName + "/" +
 		pName + ".manifest"
 
+	if _, err := os.Stat(mpath); os.IsNotExist(err) {
+		fmt.Println(api.RedBold("can't find " + projectName + " manifest - does it exist?"))
+		os.Exit(1)
+	}
+
 	file, e := ioutil.ReadFile(mpath)
 	if e != nil {
 		fmt.Println(api.RedBold("Missing Manifest for " + projectName))
@@ -249,6 +259,11 @@ func setupProjDir(projPath string) {
 // the case but eh
 func kill(projectName string) {
 	projPath := projRoot + projectName
+
+	if _, err := os.Stat(projPath); os.IsNotExist(err) {
+		fmt.Println(api.RedBold("can't find " + projectName + " - does it exist?"))
+		os.Exit(1)
+	}
 
 	pidstr := runCmd("cat " + projPath + "/pids/*")
 	pids := strings.Split(pidstr, "\n")
@@ -296,7 +311,12 @@ func pull(projectName string) {
 
 	// get manifest
 	projs := &api.Projects{}
-	projs.Manifest(projectName)
+	err := projs.Manifest(projectName)
+	if err != nil {
+		fmt.Println(api.RedBold(err.Error()))
+		os.Exit(1)
+	}
+
 	name := strings.Replace(projectName, "/", "_", -1)
 	runCmd("mv " + name + ".manifest " + projPath + "/" + projName + ".manifest")
 

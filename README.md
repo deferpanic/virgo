@@ -9,7 +9,7 @@ on your mac.
 
 ## Quick Start:
 
-1) [Install](#Install)
+1) [Install](#install)
 
 2) virgo signup my@email.com mypassword
 
