@@ -1,11 +1,22 @@
 # virgo
 
+[![wercker status](https://app.wercker.com/status/206b2657533ae49cfc4fe4e42b7cac9b/s/master "wercker status")](https://app.wercker.com/project/byKey/206b2657533ae49cfc4fe4e42b7cac9b)
+
 This is an example of using the DeferPanic Unikernel IaaS API.
 
 Here we make a docker-like application to get and run unikernels locally
 on your mac.
 
-##Get Started:
+## Quick Start:
+
+1) [Install](#Install)
+
+2) virgo signup my@email.com mypassword
+
+3) ./virgo pull eyberg/go
+
+## Slightly Longer Web Start:
+
 1) Sign up for a free account at https://deferpanic.com .
 
 2) Cut/Paste your token in ~/.dprc.
