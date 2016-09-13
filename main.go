@@ -164,8 +164,10 @@ func run(project string) {
 		}
 	}
 
+	setupNetwork(projPath)
+
 	networkLine := "  -net nic,model=virtio,vlan=0,macaddr=00:16:3e:00:01:01 " +
-		" -net tap,vlan=0,script=ifup.sh,downscript=ifdown.sh "
+		" -net tap,vlan=0,script=" + projPath + "/ifup.sh,downscript=" + projPath + "/ifdown.sh "
 
 	cmd := "sudo qemu-system-x86_64 " + kflag + drives +
 		" -nographic -vga none -serial file:" + projPath + "/logs/blah.log" +
@@ -271,6 +273,7 @@ func kill(projectName string) {
 		runCmd("sudo pkill -P " + pids[i])
 	}
 	runCmd("rm -rf " + projPath + "/pids/*")
+	runCmd("rm -rf " + projPath + "/*.sh")
 }
 
 // log for now just does a cat of the logs
