@@ -13,7 +13,7 @@ on your mac.
 
 2) virgo signup my@email.com mypassword
 
-3) ./virgo pull eyberg/go
+3) ./virgo pull deferpanic/go
 
 ## Slightly Longer Web Start:
 
@@ -52,6 +52,11 @@ virgo kill html
 ##Fetch the log for the Unikernel Project:
 ```
 virgo log html
+```
+
+##List all Unikernels that are Installed:
+```
+virgo images
 ```
 
 ##List the Running Unikernels:
