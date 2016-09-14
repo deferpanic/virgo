@@ -239,6 +239,7 @@ func readManifest(projectName string) api.Manifest {
 
 // setupProjDir sets up the project directory
 func setupProjDir(projPath string) {
+
 	// setup directory if not there yet
 	runCmd("mkdir -p " + projPath)
 
@@ -325,12 +326,9 @@ func pull(projectName string) {
 
 	// download kernel
 	if community {
-		projs.DownloadCommunity(projName, projUser)
-		runCmd("mv " + projName + " " + projPath + "/kernel/" + projName)
+		projs.DownloadCommunity(projName, projUser, projPath+"/kernel/"+projName)
 	} else {
-		projs.Download(projName)
-		runCmd("mv " + projectName + " " + projPath + "/kernel/.")
-
+		projs.Download(projName, projPath+"/kernel/"+projName)
 	}
 
 	manifest := readManifest(projectName)
