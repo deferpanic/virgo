@@ -11,7 +11,7 @@ on your mac.
 
 1) [Install](#install)
 
-2) virgo signup my@email.com mypassword
+2) virgo signup my@email.com username mypassword
 
 3) ./virgo pull deferpanic/go
 
