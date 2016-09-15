@@ -13,7 +13,7 @@ on your mac.
 
 2) virgo signup my@email.com username mypassword
 
-3) ./virgo pull deferpanic/go
+3) ./virgo pull eyberg/go
 
 ## Slightly Longer Web Start:
 
