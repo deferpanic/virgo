@@ -36,6 +36,7 @@ var (
 
 	signupCommand  = app.Command("signup", "Signup")
 	signupEmail    = signupCommand.Arg("email", "Email.").Required().String()
+	signupUsername = signupCommand.Arg("username", "Username.").Required().String()
 	signupPassword = signupCommand.Arg("password", "Password.").Required().String()
 
 	psCommand = app.Command("ps", "List running projects")
@@ -198,7 +199,9 @@ func run(project string) {
 func setToken() {
 	dat, err := ioutil.ReadFile(os.Getenv("HOME") + "/.dprc")
 	if err != nil {
-		fmt.Println(api.RedBold("you can stick your token in ~/.dprc"))
+		fmt.Println(api.RedBold("Have an account yet?\n" +
+			"If so you can stick your token in ~/.dprc.\n" +
+			"Otherwise signup via:\n\n\tvirgo signup my@email.com username password\n"))
 	}
 	dtoken := string(dat)
 
@@ -373,7 +376,7 @@ func main() {
 		log(*logCommandName)
 	case "signup":
 		users := &api.Users{}
-		users.Create(*signupEmail, *signupPassword)
+		users.Create(*signupEmail, *signupUsername, *signupPassword)
 	}
 
 }
