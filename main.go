@@ -34,6 +34,10 @@ var (
 	logCommand     = app.Command("log", "Fetch log of project")
 	logCommandName = logCommand.Arg("name", "Project name.").Required().String()
 
+	searchCommand      = app.Command("search", "Search for a project")
+	searchCommandName  = searchCommand.Arg("description", "Description").Required().String()
+	searchCommandStars = searchCommand.Arg("stars", "Star Count").Int()
+
 	signupCommand  = app.Command("signup", "Signup")
 	signupEmail    = signupCommand.Arg("email", "Email.").Required().String()
 	signupUsername = signupCommand.Arg("username", "Username.").Required().String()
@@ -374,6 +378,13 @@ func main() {
 		kill(*killCommandName)
 	case "log":
 		log(*logCommandName)
+	case "search":
+		search := &api.Search{}
+		if *searchCommandStars != 0 {
+			search.FindWithStars(*searchCommandName, *searchCommandStars)
+		} else {
+			search.Find(*searchCommandName)
+		}
 	case "signup":
 		users := &api.Users{}
 		users.Create(*signupEmail, *signupUsername, *signupPassword)
