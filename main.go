@@ -66,8 +66,9 @@ func runAsyncCmd(cmd string) {
 	command.Stderr = randomBytes
 
 	// Start command asynchronously
-	command.SysProcAttr = &syscall.SysProcAttr{}
-	command.SysProcAttr.Setsid = true
+	command.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
 	command.Start()
 }
 
@@ -193,7 +194,11 @@ func run(project string) {
 		fmt.Println(api.GreenBold("setting sysctl"))
 		runCmd("sudo sysctl -w net.inet.ip.forwarding=1")
 		runCmd("sudo sysctl -w net.link.ether.inet.proxyall=1")
-		runCmd("sudo sysctl -w net.inet.ip.fw.enable=1")
+
+		// enable this for lower osx versions
+		if osCheck() != "10.12" {
+			runCmd("sudo sysctl -w net.inet.ip.fw.enable=1")
+		}
 	}
 
 	fmt.Println(api.GreenBold("open up http://" + ip + ":3000"))
