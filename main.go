@@ -297,13 +297,28 @@ func log(projectName string) {
 	fmt.Println(logz)
 }
 
+// running builds a list of running projects
+func running() []string {
+	projs := projList(projRoot)
+
+	running := []string{}
+	for i := 0; i < len(projs); i++ {
+		ppath := projRoot + projs[i] + "/pids"
+		files, _ := ioutil.ReadDir(ppath)
+
+		for x := 0; x < len(files); x++ {
+			running = append(running, projs[i])
+		}
+	}
+
+	return running
+}
+
 // ps lists the running projects
 func ps() {
-	linez := runCmd("find ~/.virgo/projects/*/pids  -type f")
-	nlinez := strings.Split(linez, "\n")
-	for i := 0; i < len(nlinez)-1; i++ {
-		stuff := strings.Split(nlinez[i], "/")
-		fmt.Println(stuff[5])
+	pids := running()
+	for x := 0; x < len(pids); x++ {
+		fmt.Println(pids[x])
 	}
 }
 
