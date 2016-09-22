@@ -8,20 +8,22 @@ import (
 )
 
 // osCheck ensures we are dealing with el capitan or above
-func osCheck() {
-	// osx version
+func osCheck() string {
+	good := []string{"10.11.4", "10.11.5", "10.11.6", "10.12"}
 	out := strings.TrimSpace(runCmd("sw_vers -productVersion"))
-	if out == "10.11.4" {
-		fmt.Println(api.GreenBold("found supported osx version"))
-	} else if out == "10.11.5" {
-		fmt.Println(api.GreenBold("found supported osx version"))
-	} else if out == "10.11.6" {
-		fmt.Println(api.GreenBold("found supported osx version"))
-	} else {
-		fmt.Println(out)
-		fmt.Println(api.RedBold("This is only tested on El Capitan - 10.11.4. pf_ctl is used. If using an earlier osx you might need to use natd"))
-		os.Exit(1)
+	for i := 0; i < len(good); i++ {
+		if good[i] == out {
+			fmt.Println(api.GreenBold("found supported osx version"))
+			return out
+		}
 	}
+
+	fmt.Printf(api.RedBold(fmt.Sprintf("You are running osX version %s\n", out)))
+	fmt.Printf(api.RedBold(fmt.Sprintf("This is only tested on osX %v.\n"+
+		"pf_ctl is used. If using an earlier osx you might need to use natd "+
+		"or contribute a patch :)\n", good)))
+	os.Exit(1)
+	return ""
 }
 
 // cpulimitCheck looks for cpulimit which helps languages that use a lot
