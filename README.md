@@ -67,10 +67,13 @@ virgo ps
 ##Dependencies:
 This works on OSX and Linux.
 
-For OSX - this has only been tested on El Capitan. For bridge/outgoing
+For OSX - this has been tested on {El Capitan, Sierra}. For bridge/outgoing
 connections you'll want to pay attention to this section.
 
-It's known to work on {10.11.4, 10.11.5, 10.11.6}.
+Note: If you are running Sierra you really should upgrade to Go 1.7 -
+there are multiple issues.
+
+It's known to work on {10.11.4, 10.11.5, 10.11.6, 10.12.
 
 Qemu:
 ```

@@ -37,6 +37,10 @@ var (
 	logCommand     = app.Command("log", "Fetch log of project")
 	logCommandName = logCommand.Arg("name", "Project name.").Required().String()
 
+	searchCommand      = app.Command("search", "Search for a project")
+	searchCommandName  = searchCommand.Arg("description", "Description").Required().String()
+	searchCommandStars = searchCommand.Arg("stars", "Star Count").Int()
+
 	signupCommand  = app.Command("signup", "Signup")
 	signupEmail    = signupCommand.Arg("email", "Email.").Required().String()
 	signupUsername = signupCommand.Arg("username", "Username.").Required().String()
@@ -65,8 +69,9 @@ func runAsyncCmd(cmd string) {
 	command.Stderr = randomBytes
 
 	// Start command asynchronously
-	command.SysProcAttr = &syscall.SysProcAttr{}
-	command.SysProcAttr.Setsid = true
+	command.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
 	command.Start()
 }
 
@@ -192,7 +197,11 @@ func run(project string) {
 		fmt.Println(api.GreenBold("setting sysctl"))
 		runCmd("sudo sysctl -w net.inet.ip.forwarding=1")
 		runCmd("sudo sysctl -w net.link.ether.inet.proxyall=1")
-		runCmd("sudo sysctl -w net.inet.ip.fw.enable=1")
+
+		// enable this for lower osx versions
+		if osCheck() != "10.12" {
+			runCmd("sudo sysctl -w net.inet.ip.fw.enable=1")
+		}
 	}
 
 	fmt.Println(api.GreenBold("open up http://" + ip + ":3000"))
@@ -296,13 +305,28 @@ func log(projectName string) {
 	fmt.Println(logz)
 }
 
+// running builds a list of running projects
+func running() []string {
+	projs := projList(projRoot)
+
+	running := []string{}
+	for i := 0; i < len(projs); i++ {
+		ppath := projRoot + projs[i] + "/pids"
+		files, _ := ioutil.ReadDir(ppath)
+
+		for x := 0; x < len(files); x++ {
+			running = append(running, projs[i])
+		}
+	}
+
+	return running
+}
+
 // ps lists the running projects
 func ps() {
-	linez := runCmd("find ~/.virgo/projects/*/pids  -type f")
-	nlinez := strings.Split(linez, "\n")
-	for i := 0; i < len(nlinez)-1; i++ {
-		stuff := strings.Split(nlinez[i], "/")
-		fmt.Println(stuff[5])
+	pids := running()
+	for x := 0; x < len(pids); x++ {
+		fmt.Println(pids[x])
 	}
 }
 
@@ -384,6 +408,13 @@ func main() {
 		rm(*rmCommandName)
 	case "log":
 		log(*logCommandName)
+	case "search":
+		search := &api.Search{}
+		if *searchCommandStars != 0 {
+			search.FindWithStars(*searchCommandName, *searchCommandStars)
+		} else {
+			search.Find(*searchCommandName)
+		}
 	case "signup":
 		users := &api.Users{}
 		users.Create(*signupEmail, *signupUsername, *signupPassword)
