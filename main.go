@@ -222,6 +222,7 @@ func setToken() {
 		os.Exit(1)
 	}
 
+	dtoken = strings.TrimSpace(dtoken)
 	api.Cli = api.NewCliImplementation(dtoken)
 }
 
