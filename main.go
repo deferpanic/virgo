@@ -28,8 +28,11 @@ var (
 	runCommand     = app.Command("run", "Run a project")
 	runCommandName = runCommand.Arg("name", "Project name.").Required().String()
 
-	killCommand     = app.Command("kill", "Kill a project")
+	killCommand     = app.Command("kill", "Kill a running project")
 	killCommandName = killCommand.Arg("name", "Project name.").Required().String()
+
+	rmCommand     = app.Command("rm", "Remove a project")
+	rmCommandName = rmCommand.Arg("name", "Project name.").Required().String()
 
 	logCommand     = app.Command("log", "Fetch log of project")
 	logCommandName = logCommand.Arg("name", "Project name.").Required().String()
@@ -269,6 +272,11 @@ func setupProjDir(projPath string) {
 	runCmd("mkdir -p " + projPath + "/volumes")
 }
 
+// rm removes a project locally
+func rm(projectName string) {
+	os.RemoveAll(projRoot + projectName)
+}
+
 // kill kill's the running project
 // right now this assumes that there might be multiple instances of the
 // same kind running and to kill them all - not sure why that would be
@@ -397,6 +405,8 @@ func main() {
 		images()
 	case "kill":
 		kill(*killCommandName)
+	case "rm":
+		rm(*rmCommandName)
 	case "log":
 		log(*logCommandName)
 	case "search":

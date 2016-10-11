@@ -64,6 +64,12 @@ virgo images
 virgo ps
 ```
 
+##Remove a local Unikernel Project:
+```
+virgo rm html
+```
+
+
 ##Dependencies:
 This works on OSX and Linux.
 
