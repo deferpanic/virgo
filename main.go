@@ -141,12 +141,13 @@ func run(project string) {
 		env = formatEnvs(manifest.Processes[0].Env)
 	}
 
-	ip := "10.1.2.4"
-	gw := "10.1.2.3"
+	projPath := projRoot + project
+
+	ip, gw := getNetwork(projPath)
+	setNetwork(projPath, ip, gw)
 
 	appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  \\\"gw\\\":\\\"" + gw + "\\\"},, " + env + blocks + " \\\"cmdline\\\": \\\"" + manifest.Processes[0].Cmdline + "\\\"}\""
 
-	projPath := projRoot + project
 	tm := time.Now().Unix()
 	pidLn := projPath + "/pids/" + strconv.FormatInt(tm, 10) + ".pid "
 
@@ -173,10 +174,15 @@ func run(project string) {
 		}
 	}
 
-	setupNetwork(projPath)
+	setupNetwork(projPath, gw)
 
-	networkLine := "  -net nic,model=virtio,vlan=0,macaddr=00:16:3e:00:01:01 " +
-		" -net tap,vlan=0,script=" + projPath + "/ifup.sh,downscript=" + projPath + "/ifdown.sh "
+	mac := generateMAC()
+
+	runLan := strconv.Itoa(len(running()) + 1)
+
+	networkLine := "  -net nic,model=virtio,vlan=" + runLan + ",macaddr=" +
+		mac + " " + " -net tap,vlan=" + runLan + ",ifname=tap" + runLan + ",script=" + projPath +
+		"/ifup.sh,downscript=" + projPath + "/ifdown.sh "
 
 	cmd := "sudo qemu-system-x86_64 " + kflag + drives +
 		" -nographic -vga none -serial file:" + projPath + "/logs/blah.log" +
@@ -296,6 +302,7 @@ func kill(projectName string) {
 	}
 	runCmd("rm -rf " + projPath + "/pids/*")
 	runCmd("rm -rf " + projPath + "/*.sh")
+	runCmd("rm -rf " + projPath + "/net")
 }
 
 // log for now just does a cat of the logs
