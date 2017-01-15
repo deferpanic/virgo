@@ -88,5 +88,5 @@ brew install qemu
 
 TunTapOSx:
 ```
-wget http://downloads.sourceforge.net/tuntaposx/tuntap_20150118.tar.gz
+wget https://downloads.sourceforge.net/tuntaposx/tuntap_20150118.tar.gz
 ```
