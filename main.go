@@ -205,7 +205,8 @@ func run(project string) {
 		runCmd("sudo sysctl -w net.link.ether.inet.proxyall=1")
 
 		// enable this for lower osx versions
-		if osCheck() != "10.12" {
+		o := osCheck()
+		if (o != "10.12") && (o != "10.12.2") {
 			runCmd("sudo sysctl -w net.inet.ip.fw.enable=1")
 		}
 	}
