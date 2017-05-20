@@ -25,7 +25,8 @@ on your mac.
 
 4) Fork/Compile/Run a unikernel on deferpanic and then run it locally.
 
-##Install:
+## Install:
+
 ```
 go get github.com/deferpanic/dpcli/dpcli
 go install github.com/deferpanic/dpcli/dpcli
@@ -34,43 +35,49 @@ go install
 echo "mytoken" > ~/.dprc
 ```
 
-##Pull a Unikernel Project:
+## Pull a Unikernel Project:
+
 ```
 virgo pull html
 ```
 
-##Run a Unikernel Project:
+## Run a Unikernel Project:
+
 ```
 virgo run html
 ```
 
-##Kill a local Unikernel Project:
+## Kill a local Unikernel Project:
+
 ```
 virgo kill html
 ```
 
-##Fetch the log for the Unikernel Project:
+## Fetch the log for the Unikernel Project:
+
 ```
 virgo log html
 ```
 
-##List all Unikernels that are Installed:
+## List all Unikernels that are Installed:
+
 ```
 virgo images
 ```
 
-##List the Running Unikernels:
+## List the Running Unikernels:
+
 ```
 virgo ps
 ```
 
-##Remove a local Unikernel Project:
+## Remove a local Unikernel Project:
+
 ```
 virgo rm html
 ```
 
-
-##Dependencies:
+## Dependencies:
 This works on OSX and Linux.
 
 For OSX - this has been tested on {El Capitan, Sierra}. For bridge/outgoing
@@ -82,11 +89,13 @@ there are multiple issues.
 It's known to work on {10.11.4, 10.11.5, 10.11.6, 10.12.
 
 Qemu:
+
 ```
 brew install qemu
 ```
 
 TunTapOSx:
+
 ```
 wget https://downloads.sourceforge.net/tuntaposx/tuntap_20150118.tar.gz
 ```
