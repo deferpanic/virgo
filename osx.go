@@ -9,7 +9,7 @@ import (
 
 // osCheck ensures we are dealing with el capitan or above
 func osCheck() string {
-	good := []string{"10.11.4", "10.11.5", "10.11.6", "10.12", "10.12.2", "10.12.3"}
+	good := []string{"10.11.4", "10.11.5", "10.11.6", "10.12", "10.12.2", "10.12.3", "10.12.6"}
 	out := strings.TrimSpace(runCmd("sw_vers -productVersion"))
 	for i := 0; i < len(good); i++ {
 		if good[i] == out {
