@@ -206,7 +206,7 @@ func run(project string) {
 
 		// enable this for lower osx versions
 		o := osCheck()
-		if (o != "10.12") && (o != "10.12.2") {
+		if needsFW(o) {
 			runCmd("sudo sysctl -w net.inet.ip.fw.enable=1")
 		}
 	}
