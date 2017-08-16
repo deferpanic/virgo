@@ -7,12 +7,29 @@ import (
 	"strings"
 )
 
+// supportedDarwin contains the list of known osx versions that work
+var supportedDarwin = []string{"10.11.4", "10.11.5", "10.11.6", "10.12", "10.12.2", "10.12.3", "10.12.6"}
+
+// darwinFW contains the known list of osx versions that need the
+// fw.enable sysctl setting
+var darwinFW = []string{"10.11.4", "10.11.5", "10.11.6"}
+
+// needsFW returns true if we need the fw.enable sysctl setting
+func needsFW(vers string) bool {
+	for i := 0; i < len(darwinFW); i++ {
+		if darwinFW[i] == vers {
+			return true
+		}
+	}
+
+	return false
+}
+
 // osCheck ensures we are dealing with el capitan or above
 func osCheck() string {
-	good := []string{"10.11.4", "10.11.5", "10.11.6", "10.12", "10.12.2", "10.12.3", "10.12.6"}
 	out := strings.TrimSpace(runCmd("sw_vers -productVersion"))
-	for i := 0; i < len(good); i++ {
-		if good[i] == out {
+	for i := 0; i < len(supportedDarwin); i++ {
+		if supportedDarwin[i] == out {
 			fmt.Println(api.GreenBold("found supported osx version"))
 			return out
 		}
@@ -21,7 +38,7 @@ func osCheck() string {
 	fmt.Printf(api.RedBold(fmt.Sprintf("You are running osX version %s\n", out)))
 	fmt.Printf(api.RedBold(fmt.Sprintf("This is only tested on osX %v.\n"+
 		"pf_ctl is used. If using an earlier osx you might need to use natd "+
-		"or contribute a patch :)\n", good)))
+		"or contribute a patch :)\n", supportedDarwin)))
 	os.Exit(1)
 	return ""
 }
