@@ -62,7 +62,7 @@ func runCmd(cmd string) string {
 	return string(out)
 }
 
-func runAsyncCmd(cmd string) {
+func runAsyncCmd(cmd string) error {
 	command := exec.Command("/bin/bash", "-c", cmd)
 	randomBytes := &bytes.Buffer{}
 	command.Stdout = randomBytes
@@ -72,7 +72,7 @@ func runAsyncCmd(cmd string) {
 	command.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
-	command.Start()
+	return command.Start()
 }
 
 // depcheck does a quick dependency check to ensure
@@ -174,6 +174,13 @@ func run(project string) {
 		}
 	}
 
+	if runtime.GOOS == "darwin" {
+		if checkHAX() {
+			fmt.Println(api.GreenBold("hax is enabled!"))
+			kflag = "-accel hax"
+		}
+	}
+
 	setupNetwork(projPath, gw)
 
 	mac := generateMAC()
@@ -193,7 +200,11 @@ func run(project string) {
 	done := make(chan bool)
 
 	go func() {
-		runAsyncCmd(cmd)
+		err := runAsyncCmd(cmd)
+		if err != nil {
+			fmt.Println(err)
+		}
+
 		done <- true
 	}()
 
