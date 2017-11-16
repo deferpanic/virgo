@@ -8,11 +8,21 @@ import (
 )
 
 // supportedDarwin contains the list of known osx versions that work
-var supportedDarwin = []string{"10.11.4", "10.11.5", "10.11.6", "10.12", "10.12.2", "10.12.3", "10.12.6"}
+var supportedDarwin = []string{"10.11.4", "10.11.5", "10.11.6", "10.12", "10.12.2", "10.12.3", "10.12.6", "10.13.1"}
 
 // darwinFW contains the known list of osx versions that need the
 // fw.enable sysctl setting
 var darwinFW = []string{"10.11.4", "10.11.5", "10.11.6"}
+
+// checkHAX returns true if HAX support is enabled
+func checkHAX() bool {
+	out := strings.TrimSpace(runCmd("kextstat | grep -c hax"))
+	if out == "1" {
+		return true
+	} else {
+		return false
+	}
+}
 
 // needsFW returns true if we need the fw.enable sysctl setting
 func needsFW(vers string) bool {
