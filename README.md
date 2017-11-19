@@ -100,8 +100,11 @@ TunTapOSx:
 wget https://downloads.sourceforge.net/tuntaposx/tuntap_20150118.tar.gz
 ```
 
-If you want to enable HAX (intel hardware acceleration) on Mac do this:
+If you want to enable HAX (intel hardware acceleration) on Mac you have to options:
 
+You can either roll your own kernel extension or you can download a dmg:
+
+#### Roll Your Own Extension
 1) boot into recovery mode (reboot && cmd-shift-R) and disable system integrity either of the
 two following methods:
 ```
@@ -122,6 +125,10 @@ csrutil disable
 4) ```sudo chown -R root:wheel intelhaxm.kext```
 
 5) ```sudo kextutil intelhaxm.kext```
+
+#### Download a signed dmg
+
+https://software.intel.com/en-us/android/articles/installation-instructions-for-intel-hardware-accelerated-execution-manager-mac-os-x
 
 6) You should now be able to see that hax is working:
 ```qemu-system-x86_64 -accel hax```
