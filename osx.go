@@ -8,7 +8,7 @@ import (
 )
 
 // supportedDarwin contains the list of known osx versions that work
-var supportedDarwin = []string{"10.11.4", "10.11.5", "10.11.6", "10.12", "10.12.2", "10.12.3", "10.12.6", "10.13.1"}
+var supportedDarwin = []string{"10.11.4", "10.11.5", "10.11.6", "10.12", "10.12.2", "10.12.3", "10.12.6", "10.13.1", "10.13.3"}
 
 // darwinFW contains the known list of osx versions that need the
 // fw.enable sysctl setting
