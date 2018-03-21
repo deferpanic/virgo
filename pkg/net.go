@@ -1,4 +1,4 @@
-package main
+package pkg
 
 import (
 	"crypto/rand"
@@ -13,7 +13,7 @@ import (
 
 var ifDown = `#!/bin/sh\nsudo ifconfig $1 down`
 
-func generateMAC() string {
+func GenerateMAC() string {
 	mac := "52:54:00"
 	for i := 0; i < 3; i++ {
 
@@ -40,7 +40,7 @@ func ifUp(gw string) string {
 }
 
 // setupNetwork copies over config files to an absolute path
-func setupNetwork(projPath string, gw string) {
+func SetupNetwork(projPath string, gw string) {
 	err := ioutil.WriteFile(projPath+"/ifup.sh", []byte(ifUp(gw)), 0755)
 	if err != nil {
 		api.RedBold("trouble setting up network")
@@ -57,7 +57,7 @@ func setupNetwork(projPath string, gw string) {
 // getNetwork returns the ip and gateway respectively
 // for a new instance
 // it looks for the highest ip/gw pair and then returns a pair higher
-func getNetwork(projPath string) (string, string) {
+func GetNetwork(projPath string) (string, string) {
 	pids := running()
 	if len(pids) == 0 {
 		return "10.1.2.4", "10.1.2.1"
@@ -66,8 +66,8 @@ func getNetwork(projPath string) (string, string) {
 
 		for x := 0; x < len(pids); x++ {
 			fmt.Println(pids[x])
-			fmt.Println(projRoot + pids[x] + "/net")
-			bod, err := ioutil.ReadFile(projRoot + pids[x] + "/net")
+			fmt.Println(ProjRoot + pids[x] + "/net")
+			bod, err := ioutil.ReadFile(ProjRoot + pids[x] + "/net")
 			if err != nil {
 				fmt.Println(api.RedBold("can't find network file for a project"))
 				os.Exit(1)
@@ -93,7 +93,7 @@ func getNetwork(projPath string) (string, string) {
 }
 
 // setNetwork saves the ip && gw to a flat file
-func setNetwork(projPath string, ip string, gw string) {
+func SetNetwork(projPath string, ip string, gw string) {
 	err := ioutil.WriteFile(projPath+"/net", []byte(ip+"\n"+gw), 0755)
 	if err != nil {
 		api.RedBold("trouble setting up network")

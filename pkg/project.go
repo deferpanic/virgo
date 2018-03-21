@@ -1,4 +1,4 @@
-package main
+package pkg
 
 import (
 	"fmt"
@@ -14,10 +14,10 @@ type Project struct {
 	Community bool
 }
 
-var projRoot = os.Getenv("HOME") + "/.virgo/projects/"
+var ProjRoot = os.Getenv("HOME") + "/.virgo/projects/"
 
 // isRoot determines if we are in the root of a project
-func isRoot(fname string) bool {
+func IsRoot(fname string) bool {
 	if strings.Contains(fname, ".manifest") {
 		return true
 	}
@@ -25,21 +25,21 @@ func isRoot(fname string) bool {
 }
 
 // projList recursively lists project names
-func projList(path string) []string {
+func ProjList(path string) []string {
 	var projs = []string{}
 
 	files, _ := ioutil.ReadDir(path)
 
 	for _, f := range files {
-		if isRoot(f.Name()) {
-			fproj := strings.Replace(path, projRoot+"/", "", -1)
+		if IsRoot(f.Name()) {
+			fproj := strings.Replace(path, ProjRoot+"/", "", -1)
 			return []string{fproj}
 		}
 	}
 
 	for _, f := range files {
 		if f.IsDir() {
-			s := projList(path + "/" + f.Name())
+			s := ProjList(path + "/" + f.Name())
 			projs = append(projs, s...)
 		}
 	}
@@ -48,8 +48,8 @@ func projList(path string) []string {
 }
 
 // images lists all the projects available
-func images() {
-	projs := projList(projRoot)
+func Images() {
+	projs := ProjList(ProjRoot)
 	for i := 0; i < len(projs); i++ {
 		fmt.Println(projs[i])
 	}

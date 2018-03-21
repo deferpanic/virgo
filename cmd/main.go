@@ -4,23 +4,28 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/deferpanic/dpcli/api"
-	"gopkg.in/alecthomas/kingpin.v2"
 	"io/ioutil"
+	"log"
 	"os"
-	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
+
+	"github.com/deferpanic/dpcli/api"
+	"github.com/deferpanic/virgo/pkg"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
+	runner pkg.Runner
+
 	token  string
 	hostOS string
 
-	app = kingpin.New("virgo", "Run Unikernels Locally")
+	app     = kingpin.New("virgo", "Run Unikernels Locally")
+	dry     = app.Flag("dry", "dry run, print commands only").Short('n').Bool()
+	verbose = app.Flag("verbose", "verbose output").Short('v').Bool()
 
 	pullCommand     = app.Command("pull", "Pull a project")
 	pullCommandName = pullCommand.Arg("name", "Project name.").Required().String()
@@ -51,38 +56,14 @@ var (
 	imagesCommand = app.Command("images", "List all projects")
 )
 
-// runCmd runs a shell command and returns any stderr/stdout
-func runCmd(cmd string) string {
-	out, err := exec.Command("/bin/bash", "-c", cmd).CombinedOutput()
-	if err != nil {
-		fmt.Println(string(out))
-		fmt.Println(err)
-	}
-
-	return string(out)
-}
-
-func runAsyncCmd(cmd string) error {
-	command := exec.Command("/bin/bash", "-c", cmd)
-	randomBytes := &bytes.Buffer{}
-	command.Stdout = randomBytes
-	command.Stderr = randomBytes
-
-	// Start command asynchronously
-	command.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
-	return command.Start()
-}
-
 // depcheck does a quick dependency check to ensure
 // that all required deps are installed - some auto-install
 func depcheck() {
 	if runtime.GOOS == "darwin" {
-		osCheck()
-		qemuCheck()
-		cpulimitCheck()
-		tuntapCheck()
+		pkg.OsCheck()
+		pkg.QemuCheck()
+		pkg.CpulimitCheck()
+		pkg.TuntapCheck()
 	}
 	if runtime.GOOS == "linux" {
 	}
@@ -99,7 +80,7 @@ func createQemuBlocks(project string, manifest api.Manifest) (string, string) {
 		blocks += "\\\"blk\\\" :  { \\\"source\\\":\\\"dev\\\",,  \\\"path\\\":\\\"/dev/ld" +
 			strconv.Itoa(i) + "a\\\",, \\\"fstype\\\":\\\"blk\\\",, \\\"mountpoint\\\":\\\"" +
 			volz[i].Mount + "\\\"},, "
-		drives += " -drive if=virtio,file=" + projRoot + project + "/volumes/vol" + strconv.Itoa(volz[i].Id) + ",format=raw "
+		drives += " -drive if=virtio,file=" + pkg.ProjRoot + project + "/volumes/vol" + strconv.Itoa(volz[i].Id) + ",format=raw "
 	}
 
 	return blocks, drives
@@ -119,18 +100,27 @@ func formatEnvs(menv string) string {
 
 // kvmEnabled returns true if kvm is available
 func kvmEnabled() bool {
-	cmd := "egrep '(vmx|svm)' /proc/cpuinfo"
-	out := strings.TrimSpace(runCmd(cmd))
-	if out == "" {
-		return false
-	} else {
-		return true
+	cmd := "egrep"
+	args := []string{"'(vmx|svm)'", "/proc/cpuinfo"}
+
+	out, err := runner.Run("egrep", args...)
+	if err != nil && *verbose {
+		log.Printf("Error retrieving KVM status - %s\n", err)
 	}
+
+	out = bytes.TrimSpace(out)
+
+	if len(out) == 0 {
+		return false
+	}
+
+	return true
 }
 
 // run runs the unikernel on osx || linux
 // locked down to one instance for now
 func run(project string) {
+	var err error
 
 	manifest := readManifest(project)
 
@@ -141,17 +131,17 @@ func run(project string) {
 		env = formatEnvs(manifest.Processes[0].Env)
 	}
 
-	projPath := projRoot + project
+	projPath := pkg.ProjRoot + project
 
-	ip, gw := getNetwork(projPath)
-	setNetwork(projPath, ip, gw)
+	ip, gw := pkg.GetNetwork(projPath)
+	pkg.SetNetwork(projPath, ip, gw)
 
 	appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  \\\"gw\\\":\\\"" + gw + "\\\"},, " + env + blocks + " \\\"cmdline\\\": \\\"" + manifest.Processes[0].Cmdline + "\\\"}\""
 
 	tm := time.Now().Unix()
 	pidLn := projPath + "/pids/" + strconv.FormatInt(tm, 10) + ".pid "
 
-	kpath := projRoot + project + "/kernel/"
+	kpath := pkg.ProjRoot + project + "/kernel/"
 	if strings.Contains(project, "/") {
 		s := strings.Split(project, "/")[1]
 		kpath += s
@@ -175,50 +165,50 @@ func run(project string) {
 	}
 
 	if runtime.GOOS == "darwin" {
-		if checkHAX() {
+		if pkg.CheckHAX() {
 			fmt.Println(api.GreenBold("hax is enabled!"))
 			kflag = "-accel hax"
 		}
 	}
 
-	setupNetwork(projPath, gw)
+	pkg.SetupNetwork(projPath, gw)
 
-	mac := generateMAC()
+	mac := pkg.GenerateMAC()
 
 	runLan := strconv.Itoa(len(running()) + 1)
 
-	networkLine := "  -net nic,model=virtio,vlan=" + runLan + ",macaddr=" +
-		mac + " " + " -net tap,vlan=" + runLan + ",ifname=tap" + runLan + ",script=" + projPath +
-		"/ifup.sh,downscript=" + projPath + "/ifdown.sh "
+	// @TODO, save pid into pidLn
+	cmd := "sudo"
+	args := []string{
+		"qemu-system-x86_64", kflag, drives, "-nographic", "-vga", "none", "-serial",
+		"file:", projPath + "/logs/blah.log", "-m", strconv.Itoa(manifest.Processes[0].Memory),
+		"-net", "nic,model=virtio,vlan=" + runLan + ",macaddr=" + mac,
+		"-net", "tap,vlan=" + runLan + ",ifname=tap" + runLan + ",script=" + projPath +
+			"/ifup.sh,downscript=" + projPath + "/ifdown.sh ", bootLine,
+	}
 
-	cmd := "sudo qemu-system-x86_64 " + kflag + drives +
-		" -nographic -vga none -serial file:" + projPath + "/logs/blah.log" +
-		" -m " + strconv.Itoa(manifest.Processes[0].Memory) +
-		networkLine + bootLine +
-		" & echo $! >> " + pidLn
-
-	done := make(chan bool)
-
-	go func() {
-		err := runAsyncCmd(cmd)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		done <- true
-	}()
-
-	<-done
+	runner.SetDetached(true)
+	if err = runner.Exec(cmd, args); err != nil {
+		log.Fatalf("Error running %s %s\n", cmd, pkg.Join(args, " "))
+	}
 
 	if runtime.GOOS == "darwin" {
 		fmt.Println(api.GreenBold("setting sysctl"))
-		runCmd("sudo sysctl -w net.inet.ip.forwarding=1")
-		runCmd("sudo sysctl -w net.link.ether.inet.proxyall=1")
+
+		if _, err = runner.Run("sudo", []string{"sysctl", "-w", "net.inet.ip.forwarding=1"}...); err != nil {
+			log.Fatal("Error enabling ip forwarding")
+		}
+
+		if _, err = runner.Run("sudo", []string{"sysctl", "-w", "net.link.ether.inet.proxyall=1"}...); err != nil {
+			log.Fatal("Error enabling proxyall")
+		}
 
 		// enable this for lower osx versions
-		o := osCheck()
-		if needsFW(o) {
-			runCmd("sudo sysctl -w net.inet.ip.fw.enable=1")
+		o := pkg.OsCheck()
+		if pkg.NeedsFW(o) {
+			if _, err = runner.Run("sudo", []string{"sysctl", "-w", "net.inet.ip.fw.enable=1"}...); err != nil {
+				log.Fatal("Error enabling ip firewall")
+			}
 		}
 	}
 
@@ -251,7 +241,7 @@ func readManifest(projectName string) api.Manifest {
 		pName = strings.Split(pName, "/")[1]
 	}
 
-	mpath := projRoot + projectName + "/" +
+	mpath := pkg.ProjRoot + projectName + "/" +
 		pName + ".manifest"
 
 	if _, err := os.Stat(mpath); os.IsNotExist(err) {
@@ -271,28 +261,41 @@ func readManifest(projectName string) api.Manifest {
 	return manifest
 }
 
+// @todo move to registry
+//
 // setupProjDir sets up the project directory
 func setupProjDir(projPath string) {
+	var err error
 
 	// setup directory if not there yet
-	runCmd("mkdir -p " + projPath)
+	if _, err = runner.Run("mkdir", []string{"-p", projPath}...); err != nil {
+		log.Fatalf("Error creating project directory - %s\n", err)
+	}
 
 	// setup log directory if not there yet
-	runCmd("mkdir -p " + projPath + "/logs")
+	if _, err = runner.Run("mkdir", []string{"-p", projPath, "/logs"}...); err != nil {
+		log.Fatalf("Error creating log directory - %s\n", err)
+	}
 
 	// setup pid directory if not there yet
-	runCmd("mkdir -p " + projPath + "/pids")
+	if _, err = runner.Run("mkdir", []string{"-p", projPath, "/pids"}...); err != nil {
+		log.Fatalf("Error creating pids directory - %s\n", err)
+	}
 
 	// setup kernel directory if not there yet
-	runCmd("mkdir -p " + projPath + "/kernel")
+	if _, err = runner.Run("mkdir", []string{"-p", projPath, "/kernel"}...); err != nil {
+		log.Fatalf("Error creating kernel directory - %s\n", err)
+	}
 
 	// setup volumes directory if not there yet
-	runCmd("mkdir -p " + projPath + "/volumes")
+	if _, err = runner.Run("mkdir", []string{"-p", projPath, "/volumes"}...); err != nil {
+		log.Fatalf("Error creating volumes directory - %s\n", err)
+	}
 }
 
 // rm removes a project locally
 func rm(projectName string) {
-	os.RemoveAll(projRoot + projectName)
+	os.RemoveAll(pkg.ProjRoot + projectName)
 }
 
 // kill kill's the running project
@@ -300,7 +303,7 @@ func rm(projectName string) {
 // same kind running and to kill them all - not sure why that would be
 // the case but eh
 func kill(projectName string) {
-	projPath := projRoot + projectName
+	projPath := pkg.ProjRoot + projectName
 
 	if _, err := os.Stat(projPath); os.IsNotExist(err) {
 		fmt.Println(api.RedBold("can't find " + projectName + " - does it exist?"))
@@ -319,7 +322,7 @@ func kill(projectName string) {
 
 // log for now just does a cat of the logs
 func log(projectName string) {
-	projPath := projRoot + projectName
+	projPath := pkg.ProjRoot + projectName
 
 	logz := runCmd("cat " + projPath + "/logs/*")
 	fmt.Println(logz)
@@ -327,11 +330,11 @@ func log(projectName string) {
 
 // running builds a list of running projects
 func running() []string {
-	projs := projList(projRoot)
+	projs := ProjList(pkg.ProjRoot)
 
 	running := []string{}
 	for i := 0; i < len(projs); i++ {
-		ppath := projRoot + projs[i] + "/pids"
+		ppath := pkg.ProjRoot + projs[i] + "/pids"
 		files, _ := ioutil.ReadDir(ppath)
 
 		for x := 0; x < len(files); x++ {
@@ -364,7 +367,7 @@ func pull(projectName string) {
 		projName = s[1]
 	}
 
-	projPath := projRoot + projectName
+	projPath := pkg.ProjRoot + projectName
 
 	setupProjDir(projPath)
 
@@ -401,6 +404,9 @@ func pull(projectName string) {
 }
 
 func main() {
+	var (
+		stdout, stderr *os.File = nil, nil
+	)
 
 	if len(os.Args) < 2 {
 		fmt.Println(logo)
@@ -412,6 +418,17 @@ func main() {
 		setToken()
 	}
 
+	if *verbose {
+		stdout = os.Stdout
+		stderr = os.Stderr
+	}
+
+	if *dry {
+		runner = pkg.NewDryRunner(stdout)
+	} else {
+		runner = pkg.NewExecRunner(stdout, stderr, false)
+	}
+
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 	case "pull":
 		pull(*pullCommandName)
@@ -421,7 +438,7 @@ func main() {
 	case "ps":
 		ps()
 	case "images":
-		images()
+		Images()
 	case "kill":
 		kill(*killCommandName)
 	case "rm":
