@@ -26,6 +26,22 @@ func Join(a []string, sep string) string {
 	return string(result)
 }
 
+type Slice interface {
+	Contains(string) bool
+}
+
+type StringSlice []string
+
+func (ss StringSlice) Contains(s string) bool {
+	for i, _ := range ss {
+		if ss[i] == s {
+			return true
+		}
+	}
+
+	return false
+}
+
 // --------------------------------- temp ----------------------------
 
 // runCmd runs a shell command and returns any stderr/stdout
