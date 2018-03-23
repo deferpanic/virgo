@@ -1,11 +1,14 @@
-package pkg
+package runner
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"syscall"
+
+	"github.com/deferpanic/virgo/pkg/tools"
 )
 
 type Runner interface {
@@ -18,14 +21,15 @@ type ExecRunner struct {
 	stdout   *os.File
 	stderr   *os.File
 	proc     *exec.Cmd
-	detached bool
+	Detached bool
+	Pid      int
 }
 
 func NewExecRunner(stdout, stderr *os.File, detached bool) *ExecRunner {
 	return &ExecRunner{
 		stdout:   stdout,
 		stderr:   stderr,
-		detached: detached,
+		Detached: detached,
 	}
 }
 
@@ -34,7 +38,7 @@ func (r *ExecRunner) Exec(name string, args ...string) error {
 
 	r.proc = exec.Command(name, args...)
 
-	if r.detached {
+	if r.Detached {
 		r.proc.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	}
 
@@ -60,6 +64,8 @@ func (r *ExecRunner) Exec(name string, args ...string) error {
 		}
 	}()
 
+	r.Pid = r.proc.Process.Pid
+
 	return err
 }
 
@@ -68,7 +74,7 @@ func (r *ExecRunner) Run(name string, args ...string) ([]byte, error) {
 }
 
 func (r *ExecRunner) SetDetached(v bool) *ExecRunner {
-	r.detached = v
+	r.Detached = v
 	return r
 }
 
@@ -95,7 +101,7 @@ func (r *ExecRunner) Stop() error {
 		pid = r.proc.Process.Pid
 	}
 
-	if r.detached {
+	if r.Detached {
 		pgid, err := syscall.Getpgid(pid)
 		if err != nil {
 			return err
@@ -114,6 +120,55 @@ func (r *ExecRunner) Stop() error {
 	return nil
 }
 
+func (r *ExecRunner) UnmarshalJSON(b []byte) error {
+	type tmp ExecRunner
+
+	t := &tmp{}
+
+	if err := json.Unmarshal(b, t); err != nil {
+		return err
+	}
+
+	if t.Pid == 0 {
+		return fmt.Errorf("pid is 0, wrong entry, proceed manually")
+	}
+
+	p, err := os.FindProcess(t.Pid)
+	if err != nil {
+		return err
+	}
+
+	r.stdout = os.Stdout
+	r.stderr = os.Stderr
+	r.proc = &exec.Cmd{Process: p}
+	r.Detached = t.Detached
+
+	return nil
+}
+
+func (r *ExecRunner) SaveState(pidfile string) error {
+	b, err := json.Marshal(r)
+	if err != nil {
+		return err
+	}
+
+	if _, err := os.Stat(pidfile); os.IsExist(err) || err != nil {
+		return err
+	}
+
+	wr, err := os.OpenFile(pidfile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer wr.Close()
+
+	if _, err := wr.Write(b); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 type DryRunner struct {
 	output io.Writer
 }
@@ -125,13 +180,13 @@ func NewDryRunner(o io.Writer) DryRunner {
 }
 
 func (r DryRunner) Exec(name string, args ...string) error {
-	_, err := fmt.Fprintf(r.output, "%s %s", name, Join(args, " "))
+	_, err := fmt.Fprintf(r.output, "%s %s", name, tools.Join(args, " "))
 
 	return err
 }
 
 func (r DryRunner) Run(name string, args ...string) error {
-	_, err := fmt.Fprintf(r.output, "%s %s", name, Join(args, " "))
+	_, err := fmt.Fprintf(r.output, "%s %s", name, tools.Join(args, " "))
 
 	return err
 }

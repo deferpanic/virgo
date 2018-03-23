@@ -67,8 +67,3 @@ func runAsyncCmd(cmd string) error {
 	}
 	return command.Start()
 }
-
-// MOCK
-func running() []string {
-	return []string{}
-}

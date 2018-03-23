@@ -10,15 +10,17 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/deferpanic/dpcli/api"
 	"github.com/deferpanic/virgo/pkg"
+	"github.com/deferpanic/virgo/pkg/registry"
+	"github.com/deferpanic/virgo/pkg/runner"
+
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
-	runner pkg.Runner
+	process runner.Runner
 
 	token  string
 	hostOS string
@@ -70,21 +72,6 @@ func depcheck() {
 }
 
 // createQemuBlocks returns the set of blocks && lines
-func createQemuBlocks(project string, manifest api.Manifest) (string, string) {
-	blocks := ""
-	drives := ""
-
-	// locked down to one process for now
-	volz := manifest.Processes[0].Volumes
-	for i := 0; i < len(volz); i++ {
-		blocks += "\\\"blk\\\" :  { \\\"source\\\":\\\"dev\\\",,  \\\"path\\\":\\\"/dev/ld" +
-			strconv.Itoa(i) + "a\\\",, \\\"fstype\\\":\\\"blk\\\",, \\\"mountpoint\\\":\\\"" +
-			volz[i].Mount + "\\\"},, "
-		drives += " -drive if=virtio,file=" + pkg.ProjRoot + project + "/volumes/vol" + strconv.Itoa(volz[i].Id) + ",format=raw "
-	}
-
-	return blocks, drives
-}
 
 // formatEnvs returns the env variables in the format expected for
 // rumpkernels
@@ -103,7 +90,7 @@ func kvmEnabled() bool {
 	cmd := "egrep"
 	args := []string{"'(vmx|svm)'", "/proc/cpuinfo"}
 
-	out, err := runner.Run("egrep", args...)
+	out, err := process.Run("egrep", args...)
 	if err != nil && *verbose {
 		log.Printf("Error retrieving KVM status - %s\n", err)
 	}
@@ -119,61 +106,58 @@ func kvmEnabled() bool {
 
 // run runs the unikernel on osx || linux
 // locked down to one instance for now
-func run(project string) {
+func run(r registry.Registry) {
 	var err error
 
-	manifest := readManifest(project)
+	manifest := readManifest(r)
 
-	blocks, drives := createQemuBlocks(project, manifest)
+	// blocks, drives := createQemuBlocks(project, manifest)
 
-	env := ""
-	if manifest.Processes[0].Env != "" {
-		env = formatEnvs(manifest.Processes[0].Env)
-	}
+	// env := ""
+	// if manifest.Processes[0].Env != "" {
+	// 	env = formatEnvs(manifest.Processes[0].Env)
+	// }
 
-	projPath := pkg.ProjRoot + project
+	// projPath := pkg.ProjRoot + project
 
-	ip, gw := pkg.GetNetwork(projPath)
-	pkg.SetNetwork(projPath, ip, gw)
+	// ip, gw := pkg.GetNetwork(projPath)
+	// pkg.SetNetwork(projPath, ip, gw)
 
-	appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  \\\"gw\\\":\\\"" + gw + "\\\"},, " + env + blocks + " \\\"cmdline\\\": \\\"" + manifest.Processes[0].Cmdline + "\\\"}\""
+	// appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  \\\"gw\\\":\\\"" + gw + "\\\"},, " + env + blocks + " \\\"cmdline\\\": \\\"" + manifest.Processes[0].Cmdline + "\\\"}\""
 
-	tm := time.Now().Unix()
-	pidLn := projPath + "/pids/" + strconv.FormatInt(tm, 10) + ".pid "
+	// kpath := pkg.ProjRoot + project + "/kernel/"
+	// if strings.Contains(project, "/") {
+	// 	s := strings.Split(project, "/")[1]
+	// 	kpath += s
+	// } else {
+	// 	kpath += project
+	// }
 
-	kpath := pkg.ProjRoot + project + "/kernel/"
-	if strings.Contains(project, "/") {
-		s := strings.Split(project, "/")[1]
-		kpath += s
-	} else {
-		kpath += project
-	}
+	// bootLine := ""
 
-	bootLine := ""
+	// if manifest.Processes[0].Multiboot {
+	// 	bootLine = " -kernel " + kpath + " -append " + appendLn
+	// } else {
+	// 	bootLine = " -hda " + kpath
+	// }
 
-	if manifest.Processes[0].Multiboot {
-		bootLine = " -kernel " + kpath + " -append " + appendLn
-	} else {
-		bootLine = " -hda " + kpath
-	}
+	// kflag := "-no-kvm"
+	// if runtime.GOOS == "linux" {
+	// 	if kvmEnabled() {
+	// 		kflag = "-enable-kvm"
+	// 	}
+	// }
 
-	kflag := "-no-kvm"
-	if runtime.GOOS == "linux" {
-		if kvmEnabled() {
-			kflag = "-enable-kvm"
-		}
-	}
+	// if runtime.GOOS == "darwin" {
+	// 	if pkg.CheckHAX() {
+	// 		fmt.Println(api.GreenBold("hax is enabled!"))
+	// 		kflag = "-accel hax"
+	// 	}
+	// }
 
-	if runtime.GOOS == "darwin" {
-		if pkg.CheckHAX() {
-			fmt.Println(api.GreenBold("hax is enabled!"))
-			kflag = "-accel hax"
-		}
-	}
+	// pkg.SetupNetwork(projPath, gw)
 
-	pkg.SetupNetwork(projPath, gw)
-
-	mac := pkg.GenerateMAC()
+	// mac := pkg.GenerateMAC()
 
 	runLan := strconv.Itoa(len(running()) + 1)
 
@@ -187,26 +171,27 @@ func run(project string) {
 			"/ifup.sh,downscript=" + projPath + "/ifdown.sh ", bootLine,
 	}
 
-	runner.SetDetached(true)
-	if err = runner.Exec(cmd, args); err != nil {
+	process.SetDetached(true)
+	if err = process.Exec(cmd, args...); err != nil {
 		log.Fatalf("Error running %s %s\n", cmd, pkg.Join(args, " "))
 	}
+	process.SaveState(r.PidsDir())
 
 	if runtime.GOOS == "darwin" {
 		fmt.Println(api.GreenBold("setting sysctl"))
 
-		if _, err = runner.Run("sudo", []string{"sysctl", "-w", "net.inet.ip.forwarding=1"}...); err != nil {
+		if _, err = process.Run("sysctl", []string{"-w", "net.inet.ip.forwarding=1"}...); err != nil {
 			log.Fatal("Error enabling ip forwarding")
 		}
 
-		if _, err = runner.Run("sudo", []string{"sysctl", "-w", "net.link.ether.inet.proxyall=1"}...); err != nil {
+		if _, err = process.Run("sysctl", []string{"-w", "net.link.ether.inet.proxyall=1"}...); err != nil {
 			log.Fatal("Error enabling proxyall")
 		}
 
 		// enable this for lower osx versions
 		o := pkg.OsCheck()
 		if pkg.NeedsFW(o) {
-			if _, err = runner.Run("sudo", []string{"sysctl", "-w", "net.inet.ip.fw.enable=1"}...); err != nil {
+			if _, err = process.Run("sysctl", []string{"-w", "net.inet.ip.fw.enable=1"}...); err != nil {
 				log.Fatal("Error enabling ip firewall")
 			}
 		}
@@ -235,62 +220,28 @@ func setToken() {
 }
 
 // readManifest de-serializes the project manifest
-func readManifest(projectName string) api.Manifest {
-	pName := projectName
-	if strings.Contains(pName, "/") {
-		pName = strings.Split(pName, "/")[1]
+// func readManifest(projectName string) api.Manifest {
+func readManifest(r registry.Registry) api.Manifest {
+	// @TODO Find a use-case, then fix naming
+	//
+	// pName := projectName
+	// if strings.Contains(pName, "/") {
+	// 	pName = strings.Split(pName, "/")[1]
+	// }
+
+	if _, err := os.Stat(r.ManifestFile()); err != nil {
+		log.Fatal(api.RedBold(r.ProjectName() + " error - " + err.Error()))
 	}
 
-	mpath := pkg.ProjRoot + projectName + "/" +
-		pName + ".manifest"
-
-	if _, err := os.Stat(mpath); os.IsNotExist(err) {
-		fmt.Println(api.RedBold("can't find " + projectName + " manifest - does it exist?"))
-		os.Exit(1)
-	}
-
-	file, e := ioutil.ReadFile(mpath)
-	if e != nil {
-		fmt.Println(api.RedBold("Missing Manifest for " + projectName))
-		os.Exit(1)
+	file, err := ioutil.ReadFile(r.ManifestFile())
+	if err != nil {
+		log.Fatal(api.RedBold("error reading " + projectName + " manifest - " + err.Error()))
 	}
 
 	var manifest api.Manifest
 	json.Unmarshal(file, &manifest)
 
 	return manifest
-}
-
-// @todo move to registry
-//
-// setupProjDir sets up the project directory
-func setupProjDir(projPath string) {
-	var err error
-
-	// setup directory if not there yet
-	if _, err = runner.Run("mkdir", []string{"-p", projPath}...); err != nil {
-		log.Fatalf("Error creating project directory - %s\n", err)
-	}
-
-	// setup log directory if not there yet
-	if _, err = runner.Run("mkdir", []string{"-p", projPath, "/logs"}...); err != nil {
-		log.Fatalf("Error creating log directory - %s\n", err)
-	}
-
-	// setup pid directory if not there yet
-	if _, err = runner.Run("mkdir", []string{"-p", projPath, "/pids"}...); err != nil {
-		log.Fatalf("Error creating pids directory - %s\n", err)
-	}
-
-	// setup kernel directory if not there yet
-	if _, err = runner.Run("mkdir", []string{"-p", projPath, "/kernel"}...); err != nil {
-		log.Fatalf("Error creating kernel directory - %s\n", err)
-	}
-
-	// setup volumes directory if not there yet
-	if _, err = runner.Run("mkdir", []string{"-p", projPath, "/volumes"}...); err != nil {
-		log.Fatalf("Error creating volumes directory - %s\n", err)
-	}
 }
 
 // rm removes a project locally
@@ -357,50 +308,6 @@ func ps() {
 // the project contains the kernel, any volumes attached to the project
 // and the project manifest
 func pull(projectName string) {
-	community := false
-	projUser := ""
-	projName := projectName
-	if strings.Contains(projectName, "/") {
-		community = true
-		s := strings.Split(projectName, "/")
-		projUser = s[0]
-		projName = s[1]
-	}
-
-	projPath := pkg.ProjRoot + projectName
-
-	setupProjDir(projPath)
-
-	// get manifest
-	projs := &api.Projects{}
-	err := projs.Manifest(projectName)
-	if err != nil {
-		fmt.Println(api.RedBold(err.Error()))
-		os.Exit(1)
-	}
-
-	name := strings.Replace(projectName, "/", "_", -1)
-	runCmd("mv " + name + ".manifest " + projPath + "/" + projName + ".manifest")
-
-	// download kernel
-	if community {
-		projs.DownloadCommunity(projName, projUser, projPath+"/kernel/"+projName)
-	} else {
-		projs.Download(projName, projPath+"/kernel/"+projName)
-	}
-
-	manifest := readManifest(projectName)
-
-	vols := &api.Volumes{}
-	for i := 0; i < len(manifest.Processes); i++ {
-		proc := manifest.Processes[i]
-		for j := 0; j < len(proc.Volumes); j++ {
-			// download volumes
-			vols.Download(proc.Volumes[j].Id)
-			runCmd("mv vol" + strconv.Itoa(proc.Volumes[j].Id) + " " + projPath + "/volumes/.")
-		}
-	}
-
 }
 
 func main() {
@@ -424,9 +331,9 @@ func main() {
 	}
 
 	if *dry {
-		runner = pkg.NewDryRunner(stdout)
+		process = runner.NewDryRunner(stdout)
 	} else {
-		runner = pkg.NewExecRunner(stdout, stderr, false)
+		process = runner.NewExecRunner(stdout, stderr, false)
 	}
 
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {

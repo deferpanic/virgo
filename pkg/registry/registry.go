@@ -4,25 +4,41 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
-	cfgDefaultRoot = ".virgo"
-	cfgProjectsDir = "projects"
-	cfgKernelDir   = "kernel"
-	cfgLogsDir     = "logs"
-	cfgPidsDir     = "pids"
-	cfgVolumesDir  = "volumes"
+	cfgDefaultRoot  = ".virgo"
+	cfgProjectsDir  = "projects"
+	cfgKernelDir    = "kernel"
+	cfgLogsDir      = "logs"
+	cfgPidsDir      = "pids"
+	cfgVolumesDir   = "volumes"
+	cfgManifestFile = "manifest"
+	cfgPidFile      = "pid.json"
 )
 
-type registry struct {
-	name string
-	root string
+type Registry struct {
+	name     string
+	root     string
+	username string
 }
 
 // "v ...string" is optional argument, for non-default registry root
-func New(name string, v ...string) (r registry, err error) {
-	r = registry{
+func New(name string, v ...string) (r Registry, err error) {
+	if strings.Contains(name, "/") {
+		if parts := strings.Split(name, "/"); len(parts) != 2 {
+			return Registry{}, fmt.Errorf("wrong format for community project, should be project/username")
+		} else {
+			name = parts[0]
+			if parts[1] == "" {
+				return Registry{}, fmt.Errorf("username can't be empty for community projects")
+			}
+			r.username = parts[1]
+		}
+	}
+
+	r = Registry{
 		name: name,
 		root: filepath.Join(os.Getenv("HOME"), cfgDefaultRoot),
 	}
@@ -38,11 +54,10 @@ func New(name string, v ...string) (r registry, err error) {
 	return
 }
 
-func (r registry) initialize() error {
+func (r Registry) initialize() error {
 	if _, err := os.Stat(r.Root()); err != nil {
 		if os.IsNotExist(err) {
 		} else if os.IsExist(err) {
-			fmt.Printf("exists\n")
 			return nil
 		} else {
 			return fmt.Errorf("error initializing registry - %s", err)
@@ -58,49 +73,73 @@ func (r registry) initialize() error {
 	return nil
 }
 
-func (r registry) purge() error {
+func (r Registry) purge() error {
 	return os.RemoveAll(r.Root())
 }
 
-func (r registry) PurgeProject() error {
+func (r Registry) PurgeProject() error {
 	return os.RemoveAll(r.Project())
 }
 
-func (r registry) Root() string {
+func (r Registry) Root() string {
 	return r.root
 }
 
-func (r registry) Projects() string {
+func (r Registry) ProjectName() string {
+	return r.name
+}
+
+func (r Registry) Projects() string {
 	return filepath.Join(r.Root(), cfgProjectsDir)
 }
 
-func (r registry) Project() string {
+func (r Registry) Project() string {
 	return filepath.Join(r.Root(), cfgProjectsDir, r.name)
 }
 
-func (r registry) LogsDir() string {
+func (r Registry) LogsDir() string {
 	return filepath.Join(r.Project(), cfgLogsDir)
 }
 
-func (r registry) PidsDir() string {
-	return filepath.Join(r.Project(), cfgPidsDir)
+// func (r Registry) PidsDir() string {
+// 	return filepath.Join(r.Project(), cfgPidsDir)
+// }
+
+func (r Registry) PidFile() string {
+	return filepath.Join(r.Project(), cfgPidFile)
 }
 
-func (r registry) KernelDir() string {
+func (r Registry) KernelDir() string {
 	return filepath.Join(r.Project(), cfgKernelDir)
 }
 
-func (r registry) VolumesDir() string {
+func (r Registry) KernelFile() string {
+	return filepath.Join(r.KernelDir(), r.ProjectName())
+}
+
+func (r Registry) VolumesDir() string {
 	return filepath.Join(r.Project(), cfgVolumesDir)
 }
 
-func (r registry) Structure() []string {
+func (r Registry) ManifestFile() string {
+	return filepath.Join(r.Project(), cfgManifestFile)
+}
+
+func (r Registry) IsCommunity() bool {
+	return r.username != ""
+}
+
+func (r Registry) UserName() string {
+	return r.username
+}
+
+func (r Registry) Structure() []string {
 	return []string{
 		r.Root(),
 		r.Projects(),
 		r.Project(),
 		r.LogsDir(),
-		r.PidsDir(),
+		// r.PidsDir(),
 		r.KernelDir(),
 		r.VolumesDir(),
 	}
