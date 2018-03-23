@@ -1,4 +1,4 @@
-package main
+package pkg
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ var supportedDarwin = []string{"10.11.4", "10.11.5", "10.11.6", "10.12", "10.12.
 var darwinFW = []string{"10.11.4", "10.11.5", "10.11.6"}
 
 // checkHAX returns true if HAX support is enabled
-func checkHAX() bool {
+func CheckHAX() bool {
 	out := strings.TrimSpace(runCmd("kextstat | grep -c hax"))
 	if out == "1" {
 		return true
@@ -25,7 +25,7 @@ func checkHAX() bool {
 }
 
 // needsFW returns true if we need the fw.enable sysctl setting
-func needsFW(vers string) bool {
+func NeedsFW(vers string) bool {
 	for i := 0; i < len(darwinFW); i++ {
 		if darwinFW[i] == vers {
 			return true
@@ -36,7 +36,7 @@ func needsFW(vers string) bool {
 }
 
 // osCheck ensures we are dealing with el capitan or above
-func osCheck() string {
+func OsCheck() string {
 	out := strings.TrimSpace(runCmd("sw_vers -productVersion"))
 	for i := 0; i < len(supportedDarwin); i++ {
 		if supportedDarwin[i] == out {
@@ -55,7 +55,7 @@ func osCheck() string {
 
 // cpulimitCheck looks for cpulimit which helps languages that use a lot
 // of cpu
-func cpulimitCheck() {
+func CpulimitCheck() {
 	out := strings.TrimSpace(runCmd("/usr/bin/which cpulimit"))
 	if out == "" {
 		fmt.Println(api.RedBold("cpulimit not found - installing..."))
@@ -65,7 +65,7 @@ func cpulimitCheck() {
 	}
 }
 
-func qemuCheck() {
+func QemuCheck() {
 	out := strings.TrimSpace(runCmd("which qemu-system-x86_64"))
 	if out == "qemu-system-x86_64 not found" {
 		fmt.Println(api.RedBold("qemu not found - installing..."))
@@ -75,7 +75,7 @@ func qemuCheck() {
 	}
 }
 
-func tuntapCheck() {
+func TuntapCheck() {
 	out := strings.TrimSpace(runCmd("sudo kextstat | grep tap"))
 	if out != "" {
 		fmt.Println(api.GreenBold("found tuntap support"))
