@@ -86,23 +86,6 @@ func formatEnvs(menv string) string {
 }
 
 // kvmEnabled returns true if kvm is available
-func kvmEnabled() bool {
-	cmd := "egrep"
-	args := []string{"'(vmx|svm)'", "/proc/cpuinfo"}
-
-	out, err := process.Run("egrep", args...)
-	if err != nil && *verbose {
-		log.Printf("Error retrieving KVM status - %s\n", err)
-	}
-
-	out = bytes.TrimSpace(out)
-
-	if len(out) == 0 {
-		return false
-	}
-
-	return true
-}
 
 // run runs the unikernel on osx || linux
 // locked down to one instance for now

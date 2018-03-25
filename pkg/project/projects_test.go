@@ -3,6 +3,9 @@ package project
 import (
 	"os"
 	"testing"
+
+	"github.com/deferpanic/virgo/pkg/registry"
+	"github.com/deferpanic/virgo/pkg/runner"
 )
 
 func writeSampleData(file string, b []byte) error {
@@ -44,12 +47,50 @@ func TestProjects(t *testing.T) {
 		},
 	}
 
+	r, err := registry.New("/tmp/.virgo")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	for _, sample := range sd {
-		r, err := New(sample.name, "/tmp/.virgo")
-		if err != nil {
+		if err := r.AddProject(sample.name); err != nil {
 			t.Fatal(err)
 		}
 
+		if err := writeSampleData(r.Project(sample.name).ManifestFile(), []byte(sample.manifest)); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := writeSampleData(r.Project(sample.name).PidFile(), []byte(sample.pidfile)); err != nil {
+			t.Fatal(err)
+		}
 	}
 
+	projects, err := LoadProjects(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if n := len(projects); n != 3 {
+		t.Fatalf("Expected legth is 3, obtained %d\n", len(projects))
+	}
+
+	// We can't test here actual state, because of fake input data
+	// @TODO change it to real and then it will be possible
+	//
+	// if running := len(projects.Running()); running != 2 {
+	// 	t.Fatalf("Expected running is 2, obtained %d\n", running)
+	// }
+
+	// Fake test to fake data
+	running := 0
+	for _, p := range projects {
+		if p.process.(*runner.ExecRunner).Pid != 0 {
+			running += 1
+		}
+	}
+
+	if running != 2 {
+		t.Fatalf("Expected running is 2, obtained %d\n", running)
+	}
 }

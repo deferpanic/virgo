@@ -61,12 +61,13 @@ func (r *Registry) AddProject(name string) error {
 		}
 	}
 
-	r.projects = append(r.projects, p)
-
 	// nothing to initialize for empty project
-	if p.name == "" {
-		return nil
+	if name == "" {
+		return fmt.Errorf("empty project name, unable to proceed")
 	}
+
+	p.name = name
+	r.projects = append(r.projects, p)
 
 	for _, dir := range r.Project(name).Structure() {
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -85,6 +86,10 @@ func (r *Registry) Project(name string) Project {
 	}
 
 	return Project{}
+}
+
+func (r *Registry) ProjectList() []Project {
+	return r.projects
 }
 
 func (r *Registry) initialize() error {

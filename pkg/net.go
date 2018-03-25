@@ -3,12 +3,13 @@ package pkg
 import (
 	"crypto/rand"
 	"fmt"
-	"github.com/deferpanic/dpcli/api"
 	"io/ioutil"
 	"math/big"
 	"os"
-	"strconv"
-	"strings"
+	// "strconv"
+	// "strings"
+
+	"github.com/deferpanic/dpcli/api"
 )
 
 var ifDown = `#!/bin/sh\nsudo ifconfig $1 down`
@@ -58,38 +59,41 @@ func SetupNetwork(projPath string, gw string) {
 // for a new instance
 // it looks for the highest ip/gw pair and then returns a pair higher
 func GetNetwork(projPath string) (string, string) {
-	pids := running()
-	if len(pids) == 0 {
-		return "10.1.2.4", "10.1.2.1"
-	} else {
-		highip := 0
+	/*
+		pids := running()
+		if len(pids) == 0 {
+			return "10.1.2.4", "10.1.2.1"
+		} else {
+			highip := 0
 
-		for x := 0; x < len(pids); x++ {
-			fmt.Println(pids[x])
-			fmt.Println(ProjRoot + pids[x] + "/net")
-			bod, err := ioutil.ReadFile(ProjRoot + pids[x] + "/net")
-			if err != nil {
-				fmt.Println(api.RedBold("can't find network file for a project"))
-				os.Exit(1)
+			for x := 0; x < len(pids); x++ {
+				fmt.Println(pids[x])
+				fmt.Println(ProjRoot + pids[x] + "/net")
+				bod, err := ioutil.ReadFile(ProjRoot + pids[x] + "/net")
+				if err != nil {
+					fmt.Println(api.RedBold("can't find network file for a project"))
+					os.Exit(1)
+				}
+				bods := strings.Split(string(bod[:]), "\n")
+				ipOctets := strings.Split(bods[0], ".")
+
+				lastipo, err := strconv.Atoi(ipOctets[2])
+				if err != nil {
+					fmt.Println(api.RedBold("can't find network file for a project"))
+					os.Exit(1)
+				}
+
+				if lastipo > highip {
+					highip = lastipo
+				}
+
 			}
-			bods := strings.Split(string(bod[:]), "\n")
-			ipOctets := strings.Split(bods[0], ".")
 
-			lastipo, err := strconv.Atoi(ipOctets[2])
-			if err != nil {
-				fmt.Println(api.RedBold("can't find network file for a project"))
-				os.Exit(1)
-			}
-
-			if lastipo > highip {
-				highip = lastipo
-			}
-
+			toctets := "10.1."
+			return toctets + strconv.Itoa(highip+2) + ".4", toctets + strconv.Itoa(highip+2) + ".1"
 		}
-
-		toctets := "10.1."
-		return toctets + strconv.Itoa(highip+2) + ".4", toctets + strconv.Itoa(highip+2) + ".1"
-	}
+	*/
+	return "", ""
 }
 
 // setNetwork saves the ip && gw to a flat file

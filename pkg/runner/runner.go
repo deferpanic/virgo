@@ -15,6 +15,7 @@ type Runner interface {
 	Exec(name string, args ...string) error
 	Run(name string, args ...string) ([]byte, error)
 	SetDetached(v bool)
+	IsAlive() bool
 }
 
 type ExecRunner struct {
@@ -73,9 +74,8 @@ func (r *ExecRunner) Run(name string, args ...string) ([]byte, error) {
 	return exec.Command(name, args...).CombinedOutput()
 }
 
-func (r *ExecRunner) SetDetached(v bool) *ExecRunner {
+func (r *ExecRunner) SetDetached(v bool) {
 	r.Detached = v
-	return r
 }
 
 func (r *ExecRunner) IsAlive() bool {
@@ -129,10 +129,6 @@ func (r *ExecRunner) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	if t.Pid == 0 {
-		return fmt.Errorf("pid is 0, wrong entry, proceed manually")
-	}
-
 	p, err := os.FindProcess(t.Pid)
 	if err != nil {
 		return err
@@ -142,6 +138,7 @@ func (r *ExecRunner) UnmarshalJSON(b []byte) error {
 	r.stderr = os.Stderr
 	r.proc = &exec.Cmd{Process: p}
 	r.Detached = t.Detached
+	r.Pid = t.Pid
 
 	return nil
 }
@@ -191,4 +188,6 @@ func (r DryRunner) Run(name string, args ...string) error {
 	return err
 }
 
-func (r DryRunner) SetDetached(v bool) {}
+func (r *DryRunner) SetDetached(v bool) {}
+
+func (r DryRunner) IsAlive() bool { return false }

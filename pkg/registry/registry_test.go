@@ -88,25 +88,21 @@ func TestProjectRoot(t *testing.T) {
 }
 
 func TestRegistryCommunity(t *testing.T) {
-	r, err := New("project/username")
+	r, err := New("/tmp/.virgo")
 	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.purge()
+
+	if err = r.AddProject("project/asdf"); err != nil {
 		t.Error(err)
 	}
-	r.purge()
 
-	r, err = New("project/")
-	if err == nil {
+	if err = r.AddProject("project2/"); err == nil {
 		t.Error("Expecting error for empty username")
 	}
-	r.purge()
 
-	r, err = New("project/asdf/adsf")
-	if err == nil {
+	if err = r.AddProject("project/asdf/adsf"); err == nil {
 		t.Error("Expecting error for wrong format")
 	}
-	r.purge()
 }
-
-//
-// r = New("/root")
-// r.Project("asdf").LogDir
