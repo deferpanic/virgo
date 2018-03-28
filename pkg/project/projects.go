@@ -1,32 +1,45 @@
 package project
 
 import (
-	"log"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net"
+	"strconv"
 
+	"github.com/deferpanic/virgo/pkg/network"
 	"github.com/deferpanic/virgo/pkg/registry"
+	"github.com/deferpanic/virgo/pkg/runner"
+	"github.com/deferpanic/virgo/pkg/tools"
 )
 
-type Projects []*Project
-
-func LoadProjects(r *registry.Registry) (Projects, error) {
-	result := make(Projects, 0)
-
-	for _, rp := range r.ProjectList() {
-		p := New(rp)
-		if err := p.Load(); err != nil {
-			log.Printf("Error loading project '%s' - %s\n", rp.Name(), err)
-		}
-
-		result = append(result, p)
-	}
-
-	return result, nil
+type Runtime struct {
+	ProjectName string
+	Process     runner.ExecRunner
+	Network     network.Network
 }
 
-func (ps Projects) GetProjectByName(name string) *Project {
-	for _, project := range ps {
-		if project.Name() == name {
-			return project
+type Projects []*Runtime
+
+func LoadProjects(r *registry.Registry) (Projects, error) {
+	b, err := ioutil.ReadFile(r.RuntimeFile())
+	if err != nil {
+		return nil, fmt.Errorf("error reading %s - %s", r.RuntimeFile(), err)
+	}
+
+	var projects Projects
+
+	if err := json.Unmarshal(b, &projects); err != nil {
+		return nil, fmt.Errorf("error unmarshalling %s - %s", r.RuntimeFile(), err)
+	}
+
+	return projects, nil
+}
+
+func (ps Projects) GetProjectByName(name string) *Runtime {
+	for _, p := range ps {
+		if p.ProjectName == name {
+			return p
 		}
 	}
 
@@ -36,10 +49,57 @@ func (ps Projects) GetProjectByName(name string) *Project {
 func (ps Projects) Running() Projects {
 	result := make(Projects, 0)
 
-	for _, project := range ps {
-		if project.process.IsAlive() {
-			result = append(result, project)
+	for _, p := range ps {
+		if p.Process.IsAlive() {
+			result = append(result, p)
 		}
+	}
+
+	return result
+}
+
+func (ps Projects) GetNextNetowrk() (string, string) {
+	highIP := net.IP{10, 1, 2, 4}.To4()
+	highGw := net.IP{10, 1, 2, 1}.To4()
+
+	if len(ps.Running()) > 0 {
+		for _, p := range ps {
+			ip := net.ParseIP(p.Network.Ip).To4()
+			if ip[2] > highIP[2] {
+				highIP = ip
+			}
+		}
+
+		highIP[2]++
+		highGw[2]++
+
+		if highIP[2] == 255 {
+			return "", ""
+		}
+	}
+
+	return highIP.To4().String(), highGw.To4().String()
+}
+
+func (ps Projects) NextNum() int {
+	return len(ps) + 1
+}
+
+func (ps Projects) String() string {
+	var result string
+	pids := map[string][]string{}
+
+	for _, p := range ps {
+		if _, ok := pids[p.ProjectName]; ok {
+			pids[p.ProjectName] = append(pids[p.ProjectName], strconv.Itoa(p.Process.Pid))
+		}
+	}
+
+	for _, p := range ps {
+		result += fmt.Sprintf("%s", p.ProjectName)
+		result += fmt.Sprintf("\tGw\tIP\tMAC\n")
+		result += fmt.Sprintf("\t%s\t%s\t%s\n", p.Network.Gw, p.Network.Ip, p.Network.Mac)
+		result += fmt.Sprintf("\tPids: %s", tools.Join(pids[p.ProjectName], ", "))
 	}
 
 	return result

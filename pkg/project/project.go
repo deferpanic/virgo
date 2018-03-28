@@ -14,46 +14,38 @@ import (
 
 	"github.com/deferpanic/dpcli/api"
 	"github.com/deferpanic/virgo/pkg"
+	"github.com/deferpanic/virgo/pkg/network"
 	"github.com/deferpanic/virgo/pkg/registry"
 	"github.com/deferpanic/virgo/pkg/runner"
+	"github.com/deferpanic/virgo/pkg/tools"
 )
 
 type Project struct {
 	registry.Project
 	manifest api.Manifest
-	process  runner.Runner
+	Process  runner.Runner
+	Network  network.Network
+	num      int
 }
 
-func New(pr registry.Project) *Project {
-	return &Project{
+func New(pr registry.Project, n network.Network, r runner.Runner, projectNum int) (*Project, error) {
+	p := &Project{
+		Network: n,
 		Project: pr, // initialize project registry
+		Process: r,
+		num:     projectNum,
 	}
-}
-
-func (p *Project) Load() error {
-	var err error
 
 	b, err := ioutil.ReadFile(p.ManifestFile())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := json.Unmarshal(b, &p.manifest); err != nil {
-		return fmt.Errorf("unable to load manifest file - %s", err)
+		return nil, fmt.Errorf("unable to load manifest file - %s", err)
 	}
 
-	b, err = ioutil.ReadFile(p.PidFile())
-	if err != nil {
-		return err
-	}
-
-	p.process = &runner.ExecRunner{}
-
-	if err := json.Unmarshal(b, p.process); err != nil {
-		return fmt.Errorf("unable to load manifest file - %s", err)
-	}
-
-	return nil
+	return p, nil
 }
 
 func (p *Project) Pull() error {
@@ -126,15 +118,14 @@ func (p *Project) Run() error {
 		return fmt.Errorf("no processes found in manifest file, unable to proceed")
 	}
 
-	// blocks, drives := p.createQemuBlocks()
-	blocks, _ := p.createQemuBlocks()
+	blocks, drives := p.createQemuBlocks()
 
 	if p.manifest.Processes[0].Env != "" {
 		env = p.formatEnv(p.manifest.Processes[0].Env)
 	}
 
-	ip, gw := pkg.GetNetwork(p.Root())
-	pkg.SetNetwork(p.Root(), ip, gw)
+	ip := p.Network.Ip
+	gw := p.Network.Gw
 
 	appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  \\\"gw\\\":\\\"" + gw + "\\\"},, " + env + blocks + " \\\"cmdline\\\": \\\"" + p.manifest.Processes[0].Cmdline + "\\\"}\""
 
@@ -158,12 +149,24 @@ func (p *Project) Run() error {
 		kflag = "-no-kvm"
 	}
 
-	_ = bootLine
-	_ = kflag
+	mac := p.Network.Mac
+	num := strconv.Itoa(p.num)
 
-	pkg.SetupNetwork(p.Root(), gw)
+	cmd := "sudo"
+	args := append([]string{
+		"qemu-system-x86_64", kflag, drives, "-nographic", "-vga", "none", "-serial",
+		"file:", p.LogsDir() + "/blah.log", "-m", strconv.Itoa(p.manifest.Processes[0].Memory),
+		"-net", "nic,model=virtio,vlan=" + num + ",macaddr=" + mac,
+		"-net", "tap,vlan=" + num + ",ifname=tap" + num + ",script=" + p.Root() +
+			"/ifup.sh,downscript=" + p.Root() + "/ifdown.sh "}, bootLine...)
 
-	// mac := pkg.GenerateMAC()
+	p.Process.SetDetached(true)
+
+	if err := p.Process.Exec(cmd, args...); err != nil {
+		return fmt.Errorf("error running '%s %s' - %s", cmd, tools.Join(args, " "), err)
+	}
+
+	fmt.Println(api.GreenBold("open up http://" + ip + ":3000"))
 
 	return nil
 }
@@ -202,7 +205,7 @@ func (p *Project) kvmEnabled() bool {
 	cmd := "egrep"
 	args := []string{"'(vmx|svm)'", "/proc/cpuinfo"}
 
-	out, err := p.process.Run(cmd, args...)
+	out, err := p.Process.Run(cmd, args...)
 	if err != nil {
 		log.Printf("Error retrieving KVM status - %s\n", err)
 		return false

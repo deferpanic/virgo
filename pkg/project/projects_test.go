@@ -1,6 +1,7 @@
 package project
 
 import (
+	"net"
 	"os"
 	"testing"
 
@@ -53,7 +54,7 @@ func TestProjects(t *testing.T) {
 	}
 
 	for _, sample := range sd {
-		if err := r.AddProject(sample.name); err != nil {
+		if _, err := r.AddProject(sample.name); err != nil {
 			t.Fatal(err)
 		}
 
@@ -85,12 +86,35 @@ func TestProjects(t *testing.T) {
 	// Fake test to fake data
 	running := 0
 	for _, p := range projects {
-		if p.process.(*runner.ExecRunner).Pid != 0 {
+		if p.Process.(*runner.ExecRunner).Pid != 0 {
 			running += 1
 		}
 	}
 
 	if running != 2 {
 		t.Fatalf("Expected running is 2, obtained %d\n", running)
+	}
+}
+
+func TestNextNetPair(t *testing.T) {
+	highIP := net.IP{10, 1, 2, 4}.To4()
+	highGw := net.IP{10, 1, 2, 1}.To4()
+
+	for {
+		ip := net.ParseIP("10.1.2.4").To4()
+		if ip[2] > highIP[2] {
+			highIP = ip
+		}
+
+		highIP[2]++
+		highGw[2]++
+
+		if highIP[2] == 255 {
+			break
+		}
+	}
+
+	if highIP.To4().String() != net.ParseIP("10.1.255.4").To4().String() {
+		t.Fatalf("Expected IP: 10.1.255.4, Obtained: %s\n", highIP.To4().String())
 	}
 }

@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,9 @@ const (
 	cfgVolumesDir   = "volumes"
 	cfgManifestFile = "manifest"
 	cfgPidFile      = "pid.json"
+	cfgRuntimeFile  = "runtime.json"
+	cfgIfUpFile     = "ifup.sh"
+	cfgIfDownFile   = "ifdown.sh"
 )
 
 type Project struct {
@@ -46,16 +50,16 @@ func New(v ...string) (r *Registry, err error) {
 	return
 }
 
-func (r *Registry) AddProject(name string) error {
+func (r *Registry) AddProject(name string) (Project, error) {
 	p := Project{name: name, root: r.root}
 
 	if strings.Contains(name, "/") {
 		if parts := strings.Split(name, "/"); len(parts) != 2 {
-			return fmt.Errorf("wrong format for community project, should be project/username")
+			return Project{}, fmt.Errorf("wrong format for community project, should be project/username")
 		} else {
 			name = parts[0]
 			if parts[1] == "" {
-				return fmt.Errorf("username can't be empty for community projects")
+				return Project{}, fmt.Errorf("username can't be empty for community projects")
 			}
 			p.username = parts[1]
 		}
@@ -63,7 +67,7 @@ func (r *Registry) AddProject(name string) error {
 
 	// nothing to initialize for empty project
 	if name == "" {
-		return fmt.Errorf("empty project name, unable to proceed")
+		return Project{}, fmt.Errorf("empty project name, unable to proceed")
 	}
 
 	p.name = name
@@ -71,11 +75,11 @@ func (r *Registry) AddProject(name string) error {
 
 	for _, dir := range r.Project(name).Structure() {
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("error creating registry - %s", err)
+			return Project{}, fmt.Errorf("error creating registry - %s", err)
 		}
 	}
 
-	return nil
+	return p, nil
 }
 
 func (r *Registry) Project(name string) Project {
@@ -95,6 +99,12 @@ func (r *Registry) ProjectList() []Project {
 func (r *Registry) initialize() error {
 	if _, err := os.Stat(r.Root()); err != nil {
 		if os.IsNotExist(err) {
+			for _, dir := range r.Structure() {
+				if err := os.MkdirAll(dir, 0755); err != nil {
+					return fmt.Errorf("error creating registry - %s", err)
+				}
+			}
+			return nil
 		} else if os.IsExist(err) {
 			return nil
 		} else {
@@ -102,10 +112,16 @@ func (r *Registry) initialize() error {
 		}
 	}
 
-	// registry scope files and folders are creating here
-	for _, dir := range r.Structure() {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("error creating registry - %s", err)
+	flist, err := ioutil.ReadDir(r.Projects())
+	if err != nil {
+		return fmt.Errorf("error reading project directory - %s", err)
+	}
+
+	for _, f := range flist {
+		if f.IsDir() {
+			if _, err := r.AddProject(f.Name()); err != nil {
+				return fmt.Errorf("error adding project - %s", err)
+			}
 		}
 	}
 
@@ -126,6 +142,10 @@ func (r Registry) Root() string {
 
 func (r Registry) Projects() string {
 	return filepath.Join(r.root, cfgProjectsDir)
+}
+
+func (r Registry) RuntimeFile() string {
+	return filepath.Join(r.root, cfgRuntimeFile)
 }
 
 func (r Registry) Structure() []string {
@@ -165,6 +185,14 @@ func (p Project) VolumesDir() string {
 
 func (p Project) ManifestFile() string {
 	return filepath.Join(p.Root(), cfgManifestFile)
+}
+
+func (p Project) IfUpFile() string {
+	return filepath.Join(p.Root(), cfgIfUpFile)
+}
+
+func (p Project) IfDownFile() string {
+	return filepath.Join(p.Root(), cfgIfDownFile)
 }
 
 func (p Project) IsCommunity() bool {

@@ -25,14 +25,12 @@ func TestDryRun(t *testing.T) {
 		t.Fatalf("Expected output is '%s', obtained: '%s'\n", string(expected), string(output.Bytes()))
 	}
 
-	if err := NewDryRunner(os.Stdout).Exec(name, args...); err != nil {
+	if _, err := NewDryRunner(os.Stdout).Exec(name, args...); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestProcess(t *testing.T) {
-	var err error
-
 	name := "ping"
 	args := []string{"-c", "23", "127.0.0.1"}
 
@@ -40,7 +38,7 @@ func TestProcess(t *testing.T) {
 	// for detached processes it will be failed on last isAlive check
 	p := NewExecRunner(os.Stdout, os.Stderr, false)
 
-	if err = p.Exec(name, args...); err != nil {
+	if err := p.Exec(name, args...); err != nil {
 		t.Fatal(err)
 	}
 

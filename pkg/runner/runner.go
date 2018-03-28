@@ -79,6 +79,11 @@ func (r *ExecRunner) SetDetached(v bool) {
 }
 
 func (r *ExecRunner) IsAlive() bool {
+	// this is wrong, but temporary needed
+	if r.Pid != 0 {
+		return true
+	}
+
 	if r.proc == nil || r.proc.Process == nil || r.proc.Process.Pid == 0 {
 		return false
 	}
@@ -143,29 +148,6 @@ func (r *ExecRunner) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (r *ExecRunner) SaveState(pidfile string) error {
-	b, err := json.Marshal(r)
-	if err != nil {
-		return err
-	}
-
-	if _, err := os.Stat(pidfile); os.IsExist(err) || err != nil {
-		return err
-	}
-
-	wr, err := os.OpenFile(pidfile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer wr.Close()
-
-	if _, err := wr.Write(b); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 type DryRunner struct {
 	output io.Writer
 }
@@ -182,12 +164,11 @@ func (r DryRunner) Exec(name string, args ...string) error {
 	return err
 }
 
-func (r DryRunner) Run(name string, args ...string) error {
+func (r DryRunner) Run(name string, args ...string) ([]byte, error) {
 	_, err := fmt.Fprintf(r.output, "%s %s", name, tools.Join(args, " "))
 
-	return err
+	return nil, err
 }
 
-func (r *DryRunner) SetDetached(v bool) {}
-
-func (r DryRunner) IsAlive() bool { return false }
+func (r DryRunner) SetDetached(v bool) {}
+func (r DryRunner) IsAlive() bool      { return false }

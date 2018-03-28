@@ -64,7 +64,9 @@ func TestProjectRoot(t *testing.T) {
 	}
 	defer r.purge()
 
-	r.AddProject(projectName)
+	if _, err := r.AddProject(projectName); err != nil {
+		t.Fatal(err)
+	}
 
 	obtained := r.Project(projectName).Structure()
 
@@ -94,15 +96,15 @@ func TestRegistryCommunity(t *testing.T) {
 	}
 	defer r.purge()
 
-	if err = r.AddProject("project/asdf"); err != nil {
+	if _, err = r.AddProject("project/asdf"); err != nil {
 		t.Error(err)
 	}
 
-	if err = r.AddProject("project2/"); err == nil {
+	if _, err = r.AddProject("project2/"); err == nil {
 		t.Error("Expecting error for empty username")
 	}
 
-	if err = r.AddProject("project/asdf/adsf"); err == nil {
+	if _, err = r.AddProject("project/asdf/adsf"); err == nil {
 		t.Error("Expecting error for wrong format")
 	}
 }
