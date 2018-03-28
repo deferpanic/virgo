@@ -16,7 +16,7 @@ type Network struct {
 }
 
 var ifupTpl = template.Must(template.New("").Parse(`#!/bin/sh
-sudo ifconfig $1  {{ .Gw }} netmask 255.255.255.0 up
+sudo ifconfig $1 {{ .Gw }} netmask 255.255.255.0 up
 
 unamestr=` + "`uname`" + `
 if [[ "$unamestr" == 'Darwin' ]]; then
@@ -55,7 +55,7 @@ func New(p registry.Project, ip, gw string) (Network, error) {
 		return Network{}, fmt.Errorf("error creating %s file - %s\n", p.IfUpFile(), err)
 	}
 
-	ifupTpl.Execute(wr, nil)
+	ifdownTpl.Execute(wr, nil)
 
 	wr.Close()
 

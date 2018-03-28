@@ -71,7 +71,7 @@ func (r *ExecRunner) Exec(name string, args ...string) error {
 }
 
 func (r *ExecRunner) Run(name string, args ...string) ([]byte, error) {
-	return exec.Command(name, args...).CombinedOutput()
+	return exec.Command("/bin/sh", "-c", name, tools.Join(args, " ")).CombinedOutput()
 }
 
 func (r *ExecRunner) SetDetached(v bool) {
@@ -165,7 +165,7 @@ func (r DryRunner) Exec(name string, args ...string) error {
 }
 
 func (r DryRunner) Run(name string, args ...string) ([]byte, error) {
-	_, err := fmt.Fprintf(r.output, "%s %s", name, tools.Join(args, " "))
+	_, err := fmt.Fprintf(r.output, "%s %s\n", name, tools.Join(args, " "))
 
 	return nil, err
 }

@@ -184,7 +184,7 @@ func (p Project) VolumesDir() string {
 }
 
 func (p Project) ManifestFile() string {
-	return filepath.Join(p.Root(), cfgManifestFile)
+	return filepath.Join(p.Root(), p.Name()+"."+cfgManifestFile)
 }
 
 func (p Project) IfUpFile() string {

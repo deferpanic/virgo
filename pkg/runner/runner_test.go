@@ -54,3 +54,18 @@ func TestProcess(t *testing.T) {
 		t.Fatal("Process is still alive, should be terminated")
 	}
 }
+
+func TestBashReturnValue(t *testing.T) {
+	r := runner.NewExecRunner(os.Stdout, os.Stderr, false)
+
+	_, err := r.Run("ps", []string{"|", "grep", "-c", "1"}...)
+	if err != nil {
+		t.Fatalf("Unexpected error: return code should be 0, obtained - %v\n", err)
+	}
+
+	_, err = r.Run("ls", []string{"|", "grep", "-c", "/tmp/555/nosuchfile"}...)
+	if err != nil {
+		t.Fatalf("Unexpected error: return code should be 1, obtained - %v\n", err)
+	}
+
+}

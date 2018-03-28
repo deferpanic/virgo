@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"strconv"
 
 	"github.com/deferpanic/virgo/pkg/network"
@@ -15,25 +16,28 @@ import (
 
 type Runtime struct {
 	ProjectName string
-	Process     runner.ExecRunner
+	Process     []runner.ExecRunner
 	Network     network.Network
 }
 
 type Projects []*Runtime
 
 func LoadProjects(r *registry.Registry) (Projects, error) {
+	result := make(Projects, 0)
+
 	b, err := ioutil.ReadFile(r.RuntimeFile())
+	if err != nil && os.IsNotExist(err) {
+		return result, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error reading %s - %s", r.RuntimeFile(), err)
 	}
 
-	var projects Projects
-
-	if err := json.Unmarshal(b, &projects); err != nil {
+	if err := json.Unmarshal(b, &result); err != nil {
 		return nil, fmt.Errorf("error unmarshalling %s - %s", r.RuntimeFile(), err)
 	}
 
-	return projects, nil
+	return result, nil
 }
 
 func (ps Projects) GetProjectByName(name string) *Runtime {
@@ -50,7 +54,8 @@ func (ps Projects) Running() Projects {
 	result := make(Projects, 0)
 
 	for _, p := range ps {
-		if p.Process.IsAlive() {
+		// for now it doesn't matter how many instances are running
+		if len(p.Process) > 0 && p.Process[0].IsAlive() {
 			result = append(result, p)
 		}
 	}
@@ -87,19 +92,23 @@ func (ps Projects) NextNum() int {
 
 func (ps Projects) String() string {
 	var result string
-	pids := map[string][]string{}
 
 	for _, p := range ps {
-		if _, ok := pids[p.ProjectName]; ok {
-			pids[p.ProjectName] = append(pids[p.ProjectName], strconv.Itoa(p.Process.Pid))
-		}
-	}
+		pids := []string{}
 
-	for _, p := range ps {
 		result += fmt.Sprintf("%s", p.ProjectName)
 		result += fmt.Sprintf("\tGw\tIP\tMAC\n")
 		result += fmt.Sprintf("\t%s\t%s\t%s\n", p.Network.Gw, p.Network.Ip, p.Network.Mac)
-		result += fmt.Sprintf("\tPids: %s", tools.Join(pids[p.ProjectName], ", "))
+
+		for _, instance := range p.Process {
+			pids = append(pids, strconv.Itoa(instance.Pid))
+		}
+
+		result += fmt.Sprintf("\tPids: %s", tools.Join(pids, ", "))
+	}
+
+	if result != "" {
+		result += "\n"
 	}
 
 	return result

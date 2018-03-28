@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/deferpanic/dpcli/api"
-	"github.com/deferpanic/virgo/pkg"
+	"github.com/deferpanic/virgo/pkg/depcheck"
 	"github.com/deferpanic/virgo/pkg/network"
 	"github.com/deferpanic/virgo/pkg/registry"
 	"github.com/deferpanic/virgo/pkg/runner"
@@ -114,6 +114,12 @@ func (p *Project) Run() error {
 		kflag    string
 	)
 
+	dep := depcheck.New(p.Process)
+
+	if err := dep.RunAll(); err != nil {
+		return err
+	}
+
 	if len(p.manifest.Processes) == 0 {
 		return fmt.Errorf("no processes found in manifest file, unable to proceed")
 	}
@@ -141,8 +147,7 @@ func (p *Project) Run() error {
 			kflag = "-enable-kvm"
 		}
 	case "darwin":
-		if pkg.CheckHAX() {
-			log.Println(api.GreenBold("hax is enabled!"))
+		if dep.HasHAX() {
 			kflag = "-accel hax"
 		}
 	default:
@@ -166,7 +171,7 @@ func (p *Project) Run() error {
 		return fmt.Errorf("error running '%s %s' - %s", cmd, tools.Join(args, " "), err)
 	}
 
-	fmt.Println(api.GreenBold("open up http://" + ip + ":3000"))
+	log.Printf("open up http://%s:3000", ip)
 
 	return nil
 }
