@@ -46,7 +46,7 @@ func (d DepCehck) RunAll() error {
 }
 
 func (d DepCehck) HasHAX() bool {
-	if _, err := d.r.Run("kextstat", []string{"|", "grep", "-c", "hax"}...); err != nil {
+	if _, err := d.r.Shell("kextstat | grep -c hax"); err != nil {
 		return false
 	}
 
@@ -54,7 +54,7 @@ func (d DepCehck) HasHAX() bool {
 }
 
 func (d DepCehck) HasCpulimit() bool {
-	if _, err := d.r.Run("which", []string{"cpulimit"}...); err != nil {
+	if _, err := d.r.Shell("which cpulimit"); err != nil {
 		return false
 	}
 
@@ -62,7 +62,7 @@ func (d DepCehck) HasCpulimit() bool {
 }
 
 func (d DepCehck) HasQemu() bool {
-	if _, err := d.r.Run("which", []string{"qemu-system-x86_64"}...); err != nil {
+	if _, err := d.r.Shell("which qemu-system-x86_64"); err != nil {
 		return false
 	}
 
@@ -70,7 +70,7 @@ func (d DepCehck) HasQemu() bool {
 }
 
 func (d DepCehck) HasTunTap() bool {
-	if _, err := d.r.Run("kextstat", []string{"|", "grep", "-c", "tuntap"}...); err != nil {
+	if _, err := d.r.Shell("kextstat | grep -c tuntap"); err != nil {
 		return false
 	}
 
@@ -88,7 +88,7 @@ func (d DepCehck) IsNeedFw(ver string) bool {
 }
 
 func (d DepCehck) OsCheck() (string, error) {
-	out, err := d.r.Run("sw_vers", []string{"-productVersion"}...)
+	out, err := d.r.Shell("sw_vers -productVersion")
 	if err != nil {
 		return "", err
 	}

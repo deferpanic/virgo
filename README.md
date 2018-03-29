@@ -35,46 +35,46 @@ go install
 echo "mytoken" > ~/.dprc
 ```
 
-## Pull a Unikernel Project:
+#### Pull a Unikernel Project:
 
-```
-virgo pull html
-```
-
-## Run a Unikernel Project:
-
-```
-virgo run html
+```sh
+sudo virgo pull html
 ```
 
-## Kill a local Unikernel Project:
+#### Run a Unikernel Project:
 
-```
-virgo kill html
-```
-
-## Fetch the log for the Unikernel Project:
-
-```
-virgo log html
+```sh
+sudo virgo run html
 ```
 
-## List all Unikernels that are Installed:
+#### Kill a local Unikernel Project:
 
-```
-virgo images
-```
-
-## List the Running Unikernels:
-
-```
-virgo ps
+```sh
+sudo virgo kill html
 ```
 
-## Remove a local Unikernel Project:
+#### Fetch the log for the Unikernel Project:
 
+```sh
+sudo virgo log html
 ```
-virgo rm html
+
+#### List all Unikernels that are Installed:
+
+```sh
+sudo virgo images
+```
+
+#### List the Running Unikernels:
+
+```sh
+sudo virgo ps
+```
+
+#### Remove a local Unikernel Project:
+
+```sh
+sudo virgo rm html
 ```
 
 ## Dependencies:

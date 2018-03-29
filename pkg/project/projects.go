@@ -16,7 +16,7 @@ import (
 
 type Runtime struct {
 	ProjectName string
-	Process     []runner.ExecRunner
+	Process     []*runner.ExecRunner
 	Network     network.Network
 }
 
@@ -45,6 +45,59 @@ func (ps Projects) GetProjectByName(name string) *Runtime {
 		if p.ProjectName == name {
 			return p
 		}
+	}
+
+	return nil
+}
+
+func (ps Projects) Add(p *Project, r *registry.Registry) error {
+	if _, ok := p.Process.(runner.DryRunner); ok {
+		return nil
+	}
+
+	for i, _ := range ps {
+		if ps[i].ProjectName == p.Name() {
+			ps[i].Process = append(ps[i].Process, p.Process.(*runner.ExecRunner))
+			return nil
+		}
+	}
+
+	rt := &Runtime{
+		ProjectName: p.Name(),
+		Process:     []*runner.ExecRunner{p.Process.(*runner.ExecRunner)},
+		Network:     p.Network,
+	}
+
+	ps = append(ps, rt)
+
+	return ps.save(r)
+}
+
+func (ps Projects) Delete(rt *Runtime, r *registry.Registry) error {
+	for i, _ := range ps {
+		if ps[i].ProjectName == rt.ProjectName {
+			ps = append(ps[:i], ps[i+1:]...)
+			return ps.save(r)
+		}
+	}
+
+	return fmt.Errorf("project '%s' not found in runtime", rt.ProjectName)
+}
+
+func (ps Projects) save(r *registry.Registry) error {
+	wr, err := os.OpenFile(r.RuntimeFile(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("error opening file '%s' - %s", r.RuntimeFile(), err)
+	}
+	defer wr.Close()
+
+	b, err := json.Marshal(ps)
+	if err != nil {
+		return fmt.Errorf("error marshalling Projects - %s", err)
+	}
+
+	if _, err := wr.Write(b); err != nil {
+		return fmt.Errorf("error writing file '%s' - %s", r.RuntimeFile(), err)
 	}
 
 	return nil

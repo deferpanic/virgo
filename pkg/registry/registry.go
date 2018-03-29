@@ -16,7 +16,6 @@ const (
 	cfgPidsDir      = "pids"
 	cfgVolumesDir   = "volumes"
 	cfgManifestFile = "manifest"
-	cfgPidFile      = "pid.json"
 	cfgRuntimeFile  = "runtime.json"
 	cfgIfUpFile     = "ifup.sh"
 	cfgIfDownFile   = "ifdown.sh"
@@ -165,10 +164,6 @@ func (p Project) Name() string {
 
 func (p Project) LogsDir() string {
 	return filepath.Join(p.Root(), cfgLogsDir)
-}
-
-func (p Project) PidFile() string {
-	return filepath.Join(p.Root(), cfgPidFile)
 }
 
 func (p Project) KernelDir() string {

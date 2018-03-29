@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/deferpanic/virgo/pkg/registry"
-	"github.com/deferpanic/virgo/pkg/runner"
 )
 
 func writeSampleData(file string, b []byte) error {
@@ -30,26 +29,48 @@ func TestProjects(t *testing.T) {
 		pidfile  string
 	}
 
+	runtimeSample := `[
+		{
+			"ProjectName": "project1",
+			"Process": [{
+				"Pid": 0
+			}]
+		},
+		{
+			"ProjectName": "project2",
+			"Process": [{
+				"Pid": 123
+			}]
+		},
+		{
+			"ProjectName": "project3",
+			"Process": [{
+				"Pid": 234
+			}]
+		}
+	]`
+
 	sd := []sampledate{
 		{
 			name:     "project1",
 			manifest: `{"Processes":[{"Memory":64,"Kernel":"project1","Multiboot":true,"Hash":"00000000000000000000000000000000","Cmdline":" ","Env":"","Volumes":[{"Id":7887,"File":"stubetc.iso","Mount":"/etc"}]}]}`,
-			pidfile:  `{"Detached": true, "Pid": 123}`,
 		},
 		{
 			name:     "project2",
 			manifest: `{"Processes":[{"Memory":64,"Kernel":"project2","Multiboot":true,"Hash":"00000000000000000000000000000000","Cmdline":" ","Env":"","Volumes":[{"Id":7888,"File":"stubetc.iso","Mount":"/etc"}]}]}`,
-			pidfile:  `{"Detached": true, "Pid": 1234}`,
 		},
 		{
 			name:     "project3",
 			manifest: `{"Processes":[{"Memory":64,"Kernel":"project3","Multiboot":true,"Hash":"00000000000000000000000000000000","Cmdline":" ","Env":"","Volumes":[{"Id":7889,"File":"stubetc.iso","Mount":"/etc"}]}]}`,
-			pidfile:  `{"Detached": true, "Pid": 0}`,
 		},
 	}
 
 	r, err := registry.New("/tmp/.virgo")
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := writeSampleData(r.RuntimeFile(), []byte(runtimeSample)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -59,10 +80,6 @@ func TestProjects(t *testing.T) {
 		}
 
 		if err := writeSampleData(r.Project(sample.name).ManifestFile(), []byte(sample.manifest)); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := writeSampleData(r.Project(sample.name).PidFile(), []byte(sample.pidfile)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -86,8 +103,10 @@ func TestProjects(t *testing.T) {
 	// Fake test to fake data
 	running := 0
 	for _, p := range projects {
-		if p.Process.(*runner.ExecRunner).Pid != 0 {
-			running += 1
+		for _, proc := range p.Process {
+			if proc.Pid != 0 {
+				running += 1
+			}
 		}
 	}
 

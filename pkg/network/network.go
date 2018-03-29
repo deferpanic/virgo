@@ -23,7 +23,7 @@ if [[ "$unamestr" == 'Darwin' ]]; then
 	sudo pfctl -d
 	echo "nat on en0 from $1:network to any -> (en0)" > rulez
 	sudo pfctl -f ./rulez -e
-"fi
+fi
 `))
 
 var ifdownTpl = template.Must(template.New("").Parse(`#!/bin/sh

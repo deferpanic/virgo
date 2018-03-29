@@ -25,7 +25,7 @@ func TestDryRun(t *testing.T) {
 		t.Fatalf("Expected output is '%s', obtained: '%s'\n", string(expected), string(output.Bytes()))
 	}
 
-	if _, err := NewDryRunner(os.Stdout).Exec(name, args...); err != nil {
+	if err := NewDryRunner(os.Stdout).Exec(name, args...); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -46,25 +46,21 @@ func TestProcess(t *testing.T) {
 		t.Fatal("No such process found, expecting it's alive")
 	}
 
-	if err = p.Stop(); err != nil {
+	if err := p.Stop(); err != nil {
 		t.Fatal(err)
-	}
-
-	if p.IsAlive() {
-		t.Fatal("Process is still alive, should be terminated")
 	}
 }
 
 func TestBashReturnValue(t *testing.T) {
-	r := runner.NewExecRunner(os.Stdout, os.Stderr, false)
+	r := NewExecRunner(os.Stdout, os.Stderr, false)
 
-	_, err := r.Run("ps", []string{"|", "grep", "-c", "1"}...)
+	_, err := r.Shell("ps | grep -c 1")
 	if err != nil {
 		t.Fatalf("Unexpected error: return code should be 0, obtained - %v\n", err)
 	}
 
-	_, err = r.Run("ls", []string{"|", "grep", "-c", "/tmp/555/nosuchfile"}...)
-	if err != nil {
+	_, err = r.Shell("ls | grep -c /tmp/555/nosuchfile")
+	if err == nil {
 		t.Fatalf("Unexpected error: return code should be 1, obtained - %v\n", err)
 	}
 

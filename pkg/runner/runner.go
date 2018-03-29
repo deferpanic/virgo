@@ -14,6 +14,7 @@ import (
 type Runner interface {
 	Exec(name string, args ...string) error
 	Run(name string, args ...string) ([]byte, error)
+	Shell(args string) ([]byte, error)
 	SetDetached(v bool)
 	IsAlive() bool
 }
@@ -71,7 +72,11 @@ func (r *ExecRunner) Exec(name string, args ...string) error {
 }
 
 func (r *ExecRunner) Run(name string, args ...string) ([]byte, error) {
-	return exec.Command("/bin/sh", "-c", name, tools.Join(args, " ")).CombinedOutput()
+	return exec.Command(name, tools.Join(args, " ")).CombinedOutput()
+}
+
+func (r *ExecRunner) Shell(args string) ([]byte, error) {
+	return exec.Command("/bin/sh", "-c", args).CombinedOutput()
 }
 
 func (r *ExecRunner) SetDetached(v bool) {
@@ -172,3 +177,8 @@ func (r DryRunner) Run(name string, args ...string) ([]byte, error) {
 
 func (r DryRunner) SetDetached(v bool) {}
 func (r DryRunner) IsAlive() bool      { return false }
+func (r DryRunner) Shell(args string) ([]byte, error) {
+	_, err := fmt.Println("/bin/sh", "-c", args)
+
+	return nil, err
+}

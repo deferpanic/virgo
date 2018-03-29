@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -17,7 +15,6 @@ import (
 	"github.com/deferpanic/virgo/pkg/network"
 	"github.com/deferpanic/virgo/pkg/registry"
 	"github.com/deferpanic/virgo/pkg/runner"
-	"github.com/deferpanic/virgo/pkg/tools"
 )
 
 type Project struct {
@@ -46,65 +43,6 @@ func New(pr registry.Project, n network.Network, r runner.Runner, projectNum int
 	}
 
 	return p, nil
-}
-
-func (p *Project) Pull() error {
-	var err error
-	log.Printf("Pulling project name: %s\n", p.Name())
-
-	p.manifest, err = api.LoadManifest(p.Name())
-	if err != nil {
-		return err
-	}
-
-	// @TODO code below is old - refactor it
-	//
-	// the only difference here is an image and source path
-	ap := &api.Projects{}
-	if p.IsCommunity() {
-		err = ap.DownloadCommunity(p.Name(), p.UserName(), p.KernelFile())
-	} else {
-		err = ap.Download(p.Name(), p.KernelFile())
-	}
-
-	if err != nil {
-		return err
-	} else {
-		// @TODO add verbosity levels
-		log.Println(api.GreenBold("kernel file saved"))
-	}
-
-	v := &api.Volumes{}
-
-	for i := 0; i < len(p.manifest.Processes); i++ {
-		proc := p.manifest.Processes[i]
-		for _, volume := range proc.Volumes {
-			dst := filepath.Join(p.VolumesDir(), "vol"+strconv.Itoa(volume.Id))
-
-			if err = v.Download(volume.Id, dst); err != nil {
-				return err
-			} else {
-				// @TODO add verbosity levels
-				log.Println(api.GreenBold(dst + " file saved"))
-			}
-		}
-	}
-
-	b, err := json.Marshal(p.manifest)
-	if err != nil {
-		return err
-	}
-
-	wr, err := os.OpenFile(p.ManifestFile(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-
-	if _, err := wr.Write(b); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (p *Project) Run() error {
@@ -157,21 +95,24 @@ func (p *Project) Run() error {
 	mac := p.Network.Mac
 	num := strconv.Itoa(p.num)
 
-	cmd := "sudo"
+	cmd := "qemu-system-x86_64"
 	args := append([]string{
-		"qemu-system-x86_64", kflag, drives, "-nographic", "-vga", "none", "-serial",
-		"file:", p.LogsDir() + "/blah.log", "-m", strconv.Itoa(p.manifest.Processes[0].Memory),
-		"-net", "nic,model=virtio,vlan=" + num + ",macaddr=" + mac,
-		"-net", "tap,vlan=" + num + ",ifname=tap" + num + ",script=" + p.Root() +
-			"/ifup.sh,downscript=" + p.Root() + "/ifdown.sh "}, bootLine...)
+		kflag,
+		drives,
+		"-serial", "file:" + p.LogsDir() + "/blah.log",
+		"-m", strconv.Itoa(p.manifest.Processes[0].Memory),
+		"-netdev", "tap,id=vmnet" + num + ",ifname=tap" + num + ",script=" + p.Root() + "/ifup.sh,downscript=" + p.Root() + "/ifdown.sh",
+		"-device virtio-net-pci,netdev=vmnet" + num + ",mac=" + mac,
+	}, bootLine...)
 
 	p.Process.SetDetached(true)
 
 	if err := p.Process.Exec(cmd, args...); err != nil {
-		return fmt.Errorf("error running '%s %s' - %s", cmd, tools.Join(args, " "), err)
+		// return fmt.Errorf("error running '%s %s' - %s", cmd, tools.Join(args, " "), err)
+		return fmt.Errorf("error running '%s %s' - %s", cmd, args, err)
 	}
 
-	log.Printf("open up http://%s:3000", ip)
+	// log.Printf("open up http://%s:3000", ip)
 
 	return nil
 }
