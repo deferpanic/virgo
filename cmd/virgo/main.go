@@ -61,6 +61,8 @@ func main() {
 		process        runner.Runner
 	)
 
+	log.SetFlags(log.Lshortfile)
+
 	if len(os.Args) < 2 {
 		fmt.Println(tools.Logo)
 	}
@@ -144,9 +146,9 @@ func main() {
 		}
 
 	case "run":
-		pr, err := r.AddProject(*runProjectName)
-		if err != nil {
-			log.Fatal(err)
+		pr := r.Project(*runProjectName)
+		if pr.Name() == "" {
+			log.Fatalf("Project '%s' not found\n", *runProjectName)
 		}
 
 		ip, gw := projects.GetNextNetowrk()
@@ -174,8 +176,8 @@ func main() {
 
 	case "ps":
 		w := tabwriter.NewWriter(os.Stdout, 1, 8, 0, '\t', 0)
-
 		fmt.Fprintf(w, "%s", projects)
+		w.Flush()
 
 	case "kill":
 		killProject()
@@ -187,7 +189,6 @@ func main() {
 			log.Fatal(err)
 		}
 
-	// Just shows content of log/ directory
 	case "log":
 		pr, err := r.AddProject(*logProjectName)
 		if err != nil {
@@ -209,6 +210,33 @@ func main() {
 	case "signup":
 		users := &api.Users{}
 		users.Create(*signupEmail, *signupUsername, *signupPassword)
+
+	case "list":
+		var running bool
+
+		list := r.ProjectList()
+		if len(list) == 0 {
+			fmt.Fprintf(os.Stdout, "No projects found\n")
+		}
+
+		w := tabwriter.NewWriter(os.Stdout, 1, 8, 0, '\t', 0)
+
+		fmt.Fprintf(w, "Project name\tRunning\n")
+		fmt.Fprintf(w, "------------\t-------\n")
+
+		for _, item := range list {
+			running = false
+
+			if p := projects.GetProjectByName(item.Name()); p != nil {
+				if len(p.Process) > 0 {
+					running = true
+				}
+			}
+
+			fmt.Fprintf(w, "%s\t%v\n", item.Name(), running)
+		}
+
+		w.Flush()
 	}
 
 }

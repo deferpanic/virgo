@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/deferpanic/dpcli/api"
 	"github.com/deferpanic/virgo/pkg/registry"
@@ -20,12 +21,10 @@ func Pull(pr registry.Project) error {
 		return err
 	}
 
-	// @TODO code below is old - refactor it
-	//
-	// the only difference here is an image and source path
 	ap := &api.Projects{}
 	if pr.IsCommunity() {
-		err = ap.DownloadCommunity(pr.Name(), pr.UserName(), pr.KernelFile())
+		parts := strings.Split(pr.Name(), "/")
+		err = ap.DownloadCommunity(parts[1], pr.UserName(), pr.KernelFile())
 	} else {
 		err = ap.Download(pr.Name(), pr.KernelFile())
 	}

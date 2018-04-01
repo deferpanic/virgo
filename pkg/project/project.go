@@ -15,6 +15,7 @@ import (
 	"github.com/deferpanic/virgo/pkg/network"
 	"github.com/deferpanic/virgo/pkg/registry"
 	"github.com/deferpanic/virgo/pkg/runner"
+	"github.com/deferpanic/virgo/pkg/tools"
 )
 
 type Project struct {
@@ -52,12 +53,6 @@ func (p *Project) Run() error {
 		kflag    string
 	)
 
-	dep := depcheck.New(p.Process)
-
-	if err := dep.RunAll(); err != nil {
-		return err
-	}
-
 	if len(p.manifest.Processes) == 0 {
 		return fmt.Errorf("no processes found in manifest file, unable to proceed")
 	}
@@ -85,6 +80,12 @@ func (p *Project) Run() error {
 			kflag = "-enable-kvm"
 		}
 	case "darwin":
+		dep := depcheck.New(p.Process)
+
+		if err := dep.RunAll(); err != nil {
+			return err
+		}
+
 		if dep.HasHAX() {
 			kflag = "-accel hax"
 		}
@@ -108,8 +109,7 @@ func (p *Project) Run() error {
 	p.Process.SetDetached(true)
 
 	if err := p.Process.Exec(cmd, args...); err != nil {
-		// return fmt.Errorf("error running '%s %s' - %s", cmd, tools.Join(args, " "), err)
-		return fmt.Errorf("error running '%s %s' - %s", cmd, args, err)
+		return fmt.Errorf("error running '%s %s' - %s", cmd, tools.Join(args, " "), err)
 	}
 
 	// log.Printf("open up http://%s:3000", ip)

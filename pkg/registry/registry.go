@@ -52,25 +52,30 @@ func New(v ...string) (r *Registry, err error) {
 func (r *Registry) AddProject(name string) (Project, error) {
 	p := Project{name: name, root: r.root}
 
-	if strings.Contains(name, "/") {
-		if parts := strings.Split(name, "/"); len(parts) != 2 {
-			return Project{}, fmt.Errorf("wrong format for community project, should be project/username")
-		} else {
-			name = parts[0]
-			if parts[1] == "" {
-				return Project{}, fmt.Errorf("username can't be empty for community projects")
-			}
-			p.username = parts[1]
-		}
-	}
-
-	// nothing to initialize for empty project
 	if name == "" {
 		return Project{}, fmt.Errorf("empty project name, unable to proceed")
 	}
 
+	if strings.Contains(name, "/") {
+		if parts := strings.Split(name, "/"); len(parts) != 2 {
+			return Project{}, fmt.Errorf("wrong format for community project, should be project/username")
+		} else {
+			if parts[1] == "" {
+				return Project{}, fmt.Errorf("username can't be empty for community projects")
+			}
+
+			p.username = parts[0]
+		}
+	}
+
 	p.name = name
 	r.projects = append(r.projects, p)
+
+	projectroot := filepath.Join(r.Projects(), name)
+
+	if _, err := os.Stat(projectroot); err == nil {
+		return p, nil
+	}
 
 	for _, dir := range r.Project(name).Structure() {
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -105,26 +110,47 @@ func (r *Registry) initialize() error {
 			}
 			return nil
 		} else if os.IsExist(err) {
-			return nil
 		} else {
 			return fmt.Errorf("error initializing registry - %s", err)
 		}
 	}
 
-	flist, err := ioutil.ReadDir(r.Projects())
-	if err != nil {
-		return fmt.Errorf("error reading project directory - %s", err)
-	}
+	var loadProjects func(root string) error
 
-	for _, f := range flist {
-		if f.IsDir() {
-			if _, err := r.AddProject(f.Name()); err != nil {
-				return fmt.Errorf("error adding project - %s", err)
+	loadProjects = func(root string) error {
+		list, err := ioutil.ReadDir(root)
+		if err != nil {
+			return err
+		}
+
+		for _, info := range list {
+			if !info.IsDir() {
+				continue
+			}
+
+			manifest := filepath.Join(root, info.Name(), info.Name()+"."+cfgManifestFile)
+
+			if _, err := os.Stat(manifest); err == nil {
+				projectName := info.Name()
+
+				if root != r.Projects() {
+					projectName = filepath.Join(filepath.Base(root), info.Name())
+				}
+
+				if _, err := r.AddProject(projectName); err != nil {
+					return err
+				}
+			} else if os.IsNotExist(err) {
+				loadProjects(filepath.Join(root, info.Name()))
+			} else {
+				fmt.Println(err)
 			}
 		}
+
+		return nil
 	}
 
-	return nil
+	return loadProjects(r.Projects())
 }
 
 func (r Registry) purge() error {
@@ -154,6 +180,8 @@ func (r Registry) Structure() []string {
 	}
 }
 
+// Returns project root, e.g.: ~/.virgo/projects/hello
+// For community projects root is nested in username/projects directory.
 func (p Project) Root() string {
 	return filepath.Join(p.root, cfgProjectsDir, p.name)
 }
@@ -171,7 +199,14 @@ func (p Project) KernelDir() string {
 }
 
 func (p Project) KernelFile() string {
-	return filepath.Join(p.Root(), cfgKernelDir, p.name)
+	file := filepath.Join(p.Root(), cfgKernelDir, p.Name())
+
+	if p.IsCommunity() {
+		name := strings.Replace(p.Name(), "/", "_", -1)
+		file = filepath.Join(p.Root(), cfgKernelDir, name)
+	}
+
+	return file
 }
 
 func (p Project) VolumesDir() string {
@@ -179,7 +214,14 @@ func (p Project) VolumesDir() string {
 }
 
 func (p Project) ManifestFile() string {
-	return filepath.Join(p.Root(), p.Name()+"."+cfgManifestFile)
+	file := filepath.Join(p.Root(), p.Name()+"."+cfgManifestFile)
+
+	if p.IsCommunity() {
+		parts := strings.Split(p.Name(), "/")
+		file = filepath.Join(p.Root(), parts[1]+"."+cfgManifestFile)
+	}
+
+	return file
 }
 
 func (p Project) IfUpFile() string {
