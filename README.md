@@ -38,16 +38,18 @@ echo "mytoken" > ~/.dprc
 #### Pull a Unikernel Project:
 
 ```sh
-sudo virgo pull html
+virgo pull html
 ```
 
 #### Run a Unikernel Project:
+Run command requires root privileges.
 
 ```sh
 sudo virgo run html
 ```
 
 #### Kill a local Unikernel Project:
+Kill command also requires root privileges.
 
 ```sh
 sudo virgo kill html
@@ -56,19 +58,25 @@ sudo virgo kill html
 #### Fetch the log for the Unikernel Project:
 
 ```sh
-sudo virgo log html
+virgo log html
 ```
 
 #### List all Unikernels that are Installed:
 
 ```sh
-sudo virgo images
+virgo images
 ```
 
 #### List the Running Unikernels:
 
 ```sh
-sudo virgo ps
+virgo ps
+```
+
+#### List all local Unikernels:
+
+```sh
+virgo list
 ```
 
 #### Remove a local Unikernel Project:
