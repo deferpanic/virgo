@@ -129,12 +129,13 @@ func (ps Projects) GetNextNetowrk() (string, string) {
 		}
 
 		highIP[2]++
-		highGw[2]++
 
 		if highIP[2] == 255 {
 			return "", ""
 		}
 	}
+
+	highGw[2] = highIP[2]
 
 	return highIP.To4().String(), highGw.To4().String()
 }

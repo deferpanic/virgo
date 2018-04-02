@@ -66,10 +66,7 @@ func (p *Project) Run() error {
 	ip := p.Network.Ip
 	gw := p.Network.Gw
 
-	appendline := "\"{\"net\" : {\"if\":\"vioif0\", \"type\":\"inet\", \"method\":\"static\", \"addr\":\"" + ip + "\",  \"mask\":\"24\", \"gw\":\"" + gw + "\"}, " + env + blocks + " \"cmdline\": \"" + p.manifest.Processes[0].Cmdline + "\"}\""
-
-	fmt.Println("Appendline")
-	fmt.Println(appendline)
+	appendline := `{"net" : {"if":"vioif0", "type":"inet", "method":"static", "addr":"` + ip + `",  "mask":"24", "gw":"` + gw + `"}, ` + env + blocks + ` "cmdline": "` + p.manifest.Processes[0].Cmdline + `"}`
 
 	if p.manifest.Processes[0].Multiboot {
 		bootLine = []string{"-kernel", p.KernelFile(), "-append", appendline}
@@ -102,7 +99,6 @@ func (p *Project) Run() error {
 	cmd := "qemu-system-x86_64"
 	args := []string{
 		kflag,
-		// "-nographic",
 		"-serial", "file:" + p.LogsDir() + "/blah.log",
 		"-m", strconv.Itoa(p.manifest.Processes[0].Memory),
 		"-netdev", "tap,id=vmnet" + num + ",ifname=tap" + num + ",script=" + p.Root() + "/ifup.sh,downscript=" + p.Root() + "/ifdown.sh",
@@ -126,7 +122,7 @@ func (p *Project) formatEnv(env string) (result string) {
 	parts := strings.Split(env, " ")
 
 	for i, _ := range parts {
-		result += "\"env\": \"" + parts[i] + "\","
+		result += `"env": "` + parts[i] + `",`
 	}
 
 	return result
@@ -143,9 +139,9 @@ func (p *Project) createQemuBlocks() (string, []string) {
 	}
 
 	for i, volume := range p.manifest.Processes[0].Volumes {
-		blocks += "\"blk\" :  {\"source\":\"dev\", \"path\":\"/dev/ld" +
-			strconv.Itoa(i) + "a\", \"fstype\":\"blk\", \"mountpoint\":\"" +
-			volume.Mount + "\"}, "
+		blocks += `"blk" :  {"source":"dev", "path":"/dev/ld` +
+			strconv.Itoa(i) + `a", "fstype":"blk", "mountpoint":"` +
+			volume.Mount + `"}, `
 		drives = append(drives, []string{"-drive", "if=virtio,file=" + p.VolumesDir() + "/vol" + strconv.Itoa(volume.Id) + ",format=raw"}...)
 	}
 
