@@ -66,10 +66,13 @@ func (p *Project) Run() error {
 	ip := p.Network.Ip
 	gw := p.Network.Gw
 
-	appendLn := "\"{ \\\"net\\\" : { \\\"if\\\":\\\"vioif0\\\",,\\\"type\\\":\\\"inet\\\",, \\\"method\\\":\\\"static\\\",, \\\"addr\\\":\\\"" + ip + "\\\",,  \\\"mask\\\":\\\"24\\\",,  \\\"gw\\\":\\\"" + gw + "\\\"},, " + env + blocks + " \\\"cmdline\\\": \\\"" + p.manifest.Processes[0].Cmdline + "\\\"}\""
+	appendline := "\"{\"net\" : {\"if\":\"vioif0\", \"type\":\"inet\", \"method\":\"static\", \"addr\":\"" + ip + "\",  \"mask\":\"24\", \"gw\":\"" + gw + "\"}, " + env + blocks + " \"cmdline\": \"" + p.manifest.Processes[0].Cmdline + "\"}\""
+
+	fmt.Println("Appendline")
+	fmt.Println(appendline)
 
 	if p.manifest.Processes[0].Multiboot {
-		bootLine = []string{"-kernel", p.KernelFile(), "-append", appendLn}
+		bootLine = []string{"-kernel", p.KernelFile(), "-append", appendline}
 	} else {
 		bootLine = []string{"-hda", p.KernelFile()}
 	}
@@ -97,14 +100,16 @@ func (p *Project) Run() error {
 	num := strconv.Itoa(p.num)
 
 	cmd := "qemu-system-x86_64"
-	args := append([]string{
+	args := []string{
 		kflag,
-		drives,
+		// "-nographic",
 		"-serial", "file:" + p.LogsDir() + "/blah.log",
 		"-m", strconv.Itoa(p.manifest.Processes[0].Memory),
 		"-netdev", "tap,id=vmnet" + num + ",ifname=tap" + num + ",script=" + p.Root() + "/ifup.sh,downscript=" + p.Root() + "/ifdown.sh",
-		"-device virtio-net-pci,netdev=vmnet" + num + ",mac=" + mac,
-	}, bootLine...)
+		"-device", "virtio-net-pci,netdev=vmnet" + num + ",mac=" + mac,
+	}
+	args = append(args, drives...)
+	args = append(args, bootLine...)
 
 	p.Process.SetDetached(true)
 
@@ -121,7 +126,7 @@ func (p *Project) formatEnv(env string) (result string) {
 	parts := strings.Split(env, " ")
 
 	for i, _ := range parts {
-		result += "\\\"env\\\": \\\"" + parts[i] + "\\\",,"
+		result += "\"env\": \"" + parts[i] + "\","
 	}
 
 	return result
@@ -129,29 +134,26 @@ func (p *Project) formatEnv(env string) (result string) {
 
 // locked down to one process for now
 //
-func (p *Project) createQemuBlocks() (string, string) {
+func (p *Project) createQemuBlocks() (string, []string) {
 	blocks := ""
-	drives := ""
+	drives := []string{}
 
 	if len(p.manifest.Processes) == 0 {
 		return blocks, drives
 	}
 
 	for i, volume := range p.manifest.Processes[0].Volumes {
-		blocks += "\\\"blk\\\" :  { \\\"source\\\":\\\"dev\\\",,  \\\"path\\\":\\\"/dev/ld" +
-			strconv.Itoa(i) + "a\\\",, \\\"fstype\\\":\\\"blk\\\",, \\\"mountpoint\\\":\\\"" +
-			volume.Mount + "\\\"},, "
-		drives += " -drive if=virtio,file=" + p.VolumesDir() + "/vol" + strconv.Itoa(volume.Id) + ",format=raw "
+		blocks += "\"blk\" :  {\"source\":\"dev\", \"path\":\"/dev/ld" +
+			strconv.Itoa(i) + "a\", \"fstype\":\"blk\", \"mountpoint\":\"" +
+			volume.Mount + "\"}, "
+		drives = append(drives, []string{"-drive", "if=virtio,file=" + p.VolumesDir() + "/vol" + strconv.Itoa(volume.Id) + ",format=raw"}...)
 	}
 
 	return blocks, drives
 }
 
 func (p *Project) kvmEnabled() bool {
-	cmd := "egrep"
-	args := []string{"'(vmx|svm)'", "/proc/cpuinfo"}
-
-	out, err := p.Process.Run(cmd, args...)
+	out, err := p.Process.Shell("egrep '(vmx|svm)' /proc/cpuinfo")
 	if err != nil {
 		log.Printf("Error retrieving KVM status - %s\n", err)
 		return false

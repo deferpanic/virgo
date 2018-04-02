@@ -38,6 +38,12 @@ func NewExecRunner(stdout, stderr *os.File, detached bool) *ExecRunner {
 func (r *ExecRunner) Exec(name string, args ...string) error {
 	var err error
 
+	for i := 0; i < len(args); i++ {
+		if args[i] == " " || args[i] == "" {
+			args = append(args[:i], args[i+1:]...)
+		}
+	}
+
 	r.proc = exec.Command(name, args...)
 
 	if r.Detached {
@@ -72,7 +78,7 @@ func (r *ExecRunner) Exec(name string, args ...string) error {
 }
 
 func (r *ExecRunner) Run(name string, args ...string) ([]byte, error) {
-	return exec.Command(name, tools.Join(args, " ")).CombinedOutput()
+	return exec.Command(tools.Join(args, " ")).CombinedOutput()
 }
 
 func (r *ExecRunner) Shell(args string) ([]byte, error) {

@@ -15,7 +15,7 @@ type Network struct {
 	Mac string
 }
 
-var ifupTpl = template.Must(template.New("").Parse(`#!/bin/sh
+var ifupTpl = template.Must(template.New("").Parse(`#!/bin/bash
 sudo ifconfig $1 {{ .Gw }} netmask 255.255.255.0 up
 
 unamestr=` + "`uname`" + `
@@ -26,7 +26,7 @@ if [[ "$unamestr" == 'Darwin' ]]; then
 fi
 `))
 
-var ifdownTpl = template.Must(template.New("").Parse(`#!/bin/sh
+var ifdownTpl = template.Must(template.New("").Parse(`#!/bin/bash
 ifconfig $1 down
 `))
 
@@ -41,7 +41,7 @@ func New(p registry.Project, ip, gw string) (Network, error) {
 		Mac: (Network{}).generateMAC(),
 	}
 
-	wr, err := os.OpenFile(p.IfUpFile(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	wr, err := os.OpenFile(p.IfUpFile(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
 	if err != nil {
 		return Network{}, fmt.Errorf("error creating %s file - %s\n", p.IfUpFile(), err)
 	}
@@ -50,7 +50,7 @@ func New(p registry.Project, ip, gw string) (Network, error) {
 
 	wr.Close()
 
-	wr, err = os.OpenFile(p.IfDownFile(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	wr, err = os.OpenFile(p.IfDownFile(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
 	if err != nil {
 		return Network{}, fmt.Errorf("error creating %s file - %s\n", p.IfUpFile(), err)
 	}

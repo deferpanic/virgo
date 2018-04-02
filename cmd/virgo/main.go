@@ -89,8 +89,10 @@ func main() {
 		var err error
 		log.Println("setting sysctl")
 
-		if _, err = process.Shell("sysctl -w net.inet.ip.forwarding=1"); err != nil {
+		if out, err := process.Shell("sysctl -w net.inet.ip.forwarding=1"); err != nil {
 			log.Fatalf("Error enabling ip forwarding - %s", err)
+		} else {
+			fmt.Printf("output of sysctl: %s\n", string(out))
 		}
 
 		if _, err = process.Shell("sysctl -w net.link.ether.inet.proxyall=1"); err != nil {
@@ -173,6 +175,8 @@ func main() {
 		if err := projects.Add(p, r); err != nil {
 			log.Fatal(err)
 		}
+
+		fmt.Println()
 
 	case "ps":
 		w := tabwriter.NewWriter(os.Stdout, 1, 8, 0, '\t', 0)
