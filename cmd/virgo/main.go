@@ -29,6 +29,7 @@ var (
 	pullProjectName = pullCommand.Arg("name", "Project name.").Required().String()
 
 	runCmd         = app.Command("run", "Run a project")
+	runHeadless    = runCmd.Flag("headless", "Run project headless").Bool()
 	runProjectName = runCmd.Arg("name", "Project name.").Required().String()
 
 	killCommand     = app.Command("kill", "Kill a running project")
@@ -89,10 +90,8 @@ func main() {
 		var err error
 		log.Println("setting sysctl")
 
-		if out, err := process.Shell("sysctl -w net.inet.ip.forwarding=1"); err != nil {
+		if _, err := process.Shell("sysctl -w net.inet.ip.forwarding=1"); err != nil {
 			log.Fatalf("Error enabling ip forwarding - %s", err)
-		} else {
-			fmt.Printf("output of sysctl: %s\n", string(out))
 		}
 
 		if _, err = process.Shell("sysctl -w net.link.ether.inet.proxyall=1"); err != nil {
@@ -162,13 +161,13 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-
+		fmt.Println("NextNum:", projects.NextNum())
 		p, err := project.New(pr, network, process, projects.NextNum())
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		if err = p.Run(); err != nil {
+		if err = p.Run(*runHeadless); err != nil {
 			log.Fatal(err)
 		}
 
@@ -179,7 +178,12 @@ func main() {
 		fmt.Println()
 
 	case "ps":
-		w := tabwriter.NewWriter(os.Stdout, 1, 8, 0, '\t', 0)
+		result := projects.String()
+		if result == "" {
+			fmt.Fprintf(os.Stdout, "No projects running\n")
+		}
+
+		w := tabwriter.NewWriter(os.Stdout, 4, 8, 2, '\t', 0)
 		fmt.Fprintf(w, "%s", projects)
 		w.Flush()
 

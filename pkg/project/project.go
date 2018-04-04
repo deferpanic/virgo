@@ -46,11 +46,12 @@ func New(pr registry.Project, n network.Network, r runner.Runner, projectNum int
 	return p, nil
 }
 
-func (p *Project) Run() error {
+func (p *Project) Run(headless bool) error {
 	var (
-		env      string
-		bootLine []string
-		kflag    string
+		env       string
+		bootLine  []string
+		kflag     string
+		nographic string
 	)
 
 	if len(p.manifest.Processes) == 0 {
@@ -93,12 +94,17 @@ func (p *Project) Run() error {
 		kflag = "-no-kvm"
 	}
 
+	if headless {
+		nographic = "-nographic"
+	}
+
 	mac := p.Network.Mac
 	num := strconv.Itoa(p.num)
 
 	cmd := "qemu-system-x86_64"
 	args := []string{
 		kflag,
+		nographic,
 		"-serial", "file:" + p.LogsDir() + "/blah.log",
 		"-m", strconv.Itoa(p.manifest.Processes[0].Memory),
 		"-netdev", "tap,id=vmnet" + num + ",ifname=tap" + num + ",script=" + p.Root() + "/ifup.sh,downscript=" + p.Root() + "/ifdown.sh",

@@ -38,13 +38,17 @@ func NewExecRunner(stdout, stderr *os.File, detached bool) *ExecRunner {
 func (r *ExecRunner) Exec(name string, args ...string) error {
 	var err error
 
+	cleaned := []string{}
+
 	for i := 0; i < len(args); i++ {
 		if args[i] == " " || args[i] == "" {
-			args = append(args[:i], args[i+1:]...)
+			continue
 		}
+
+		cleaned = append(cleaned, args[i])
 	}
 
-	r.proc = exec.Command(name, args...)
+	r.proc = exec.Command(name, cleaned...)
 
 	if r.Detached {
 		r.proc.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
