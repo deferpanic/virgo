@@ -46,6 +46,9 @@ Run command requires root privileges.
 
 ```sh
 sudo virgo run html
+
+# for headless mode use flag
+sudo virgo run --headless html
 ```
 
 #### Kill a local Unikernel Project:
