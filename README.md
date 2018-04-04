@@ -35,46 +35,57 @@ go install
 echo "mytoken" > ~/.dprc
 ```
 
-## Pull a Unikernel Project:
+#### Pull a Unikernel Project:
 
-```
+```sh
 virgo pull html
 ```
 
-## Run a Unikernel Project:
+#### Run a Unikernel Project:
+Run command requires root privileges.
 
-```
-virgo run html
-```
+```sh
+sudo virgo run html
 
-## Kill a local Unikernel Project:
-
-```
-virgo kill html
+# for headless mode use flag
+sudo virgo run --headless html
 ```
 
-## Fetch the log for the Unikernel Project:
+#### Kill a local Unikernel Project:
+Kill command also requires root privileges.
 
+```sh
+sudo virgo kill html
 ```
+
+#### Fetch the log for the Unikernel Project:
+
+```sh
 virgo log html
 ```
 
-## List all Unikernels that are Installed:
+#### List all Unikernels that are Installed:
 
-```
+```sh
 virgo images
 ```
 
-## List the Running Unikernels:
+#### List the Running Unikernels:
 
-```
+```sh
 virgo ps
 ```
 
-## Remove a local Unikernel Project:
+#### List all local Unikernels:
 
+```sh
+virgo list
 ```
-virgo rm html
+
+#### Remove a local Unikernel Project:
+
+```sh
+sudo virgo rm html
 ```
 
 ## Dependencies:
