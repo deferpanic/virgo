@@ -71,7 +71,7 @@ func ShowFiles(dir string) error {
 		return err
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 1, 8, 0, '\t', 0)
+	w := tabwriter.NewWriter(os.Stdout, 1, 8, 2, '\t', 0)
 
 	for _, f := range fd {
 		if f.IsDir() {
