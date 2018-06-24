@@ -81,5 +81,10 @@ func ShowFiles(dir string) error {
 		fmt.Fprintf(w, "%s\t%d\t%s\n", f.Name(), f.Size(), f.ModTime().String())
 	}
 
+	err = w.Flush()
+	if err != nil {
+		return fmt.Errorf("error flushing log output '%s'", err)
+	}
+
 	return nil
 }
