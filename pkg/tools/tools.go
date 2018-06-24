@@ -79,6 +79,14 @@ func ShowFiles(dir string) error {
 		}
 
 		fmt.Fprintf(w, "%s\t%d\t%s\n", f.Name(), f.Size(), f.ModTime().String())
+		fmt.Fprintln(w, "----")
+
+		path := dir + string('/') + f.Name()
+		bytes, err := ioutil.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("error reading log file '%s' - '%s'", path, err)
+		}
+		fmt.Fprintf(w, "%s\n\n", bytes)
 	}
 
 	err = w.Flush()
