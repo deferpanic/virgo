@@ -78,7 +78,7 @@ func ShowFiles(dir string) error {
 			continue
 		}
 
-		fmt.Fprintf(w, "%s\t%d\t%s", f.Name(), f.Size(), f.ModTime().String())
+		fmt.Fprintf(w, "%s\t%d\t%s\n", f.Name(), f.Size(), f.ModTime().String())
 	}
 
 	return nil
