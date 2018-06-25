@@ -106,6 +106,7 @@ func (p *Project) Run(headless bool) error {
 		kflag,
 		nographic,
 		"-serial", "file:" + p.LogsDir() + "/blah.log",
+		"-vga", "none",
 		"-m", strconv.Itoa(p.manifest.Processes[0].Memory),
 		"-netdev", "tap,id=vmnet" + num + ",ifname=tap" + num + ",script=" + p.Root() + "/ifup.sh,downscript=" + p.Root() + "/ifdown.sh",
 		"-device", "virtio-net-pci,netdev=vmnet" + num + ",mac=" + mac,
