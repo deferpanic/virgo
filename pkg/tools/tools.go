@@ -71,14 +71,27 @@ func ShowFiles(dir string) error {
 		return err
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 1, 8, 0, '\t', 0)
+	w := tabwriter.NewWriter(os.Stdout, 1, 8, 2, '\t', 0)
 
 	for _, f := range fd {
 		if f.IsDir() {
 			continue
 		}
 
-		fmt.Fprintf(w, "%s\t%d\t%s", f.Name(), f.Size(), f.ModTime().String())
+		fmt.Fprintf(w, "%s\t%d\t%s\n", f.Name(), f.Size(), f.ModTime().String())
+		fmt.Fprintln(w, "----")
+
+		path := dir + string('/') + f.Name()
+		bytes, err := ioutil.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("error reading log file '%s' - '%s'", path, err)
+		}
+		fmt.Fprintf(w, "%s\n\n", bytes)
+	}
+
+	err = w.Flush()
+	if err != nil {
+		return fmt.Errorf("error flushing log output '%s'", err)
 	}
 
 	return nil
