@@ -162,16 +162,17 @@ func (ps Projects) String() string {
 		return ""
 	}
 
-	result += "Projectname\tGw\tIP\tMAC\tPids\n"
+	result += "Projectname\tGw\tIP\tMem\tPids\tMAC\n"
 
 	for _, p := range ps {
 		pids := []string{}
 
+                p.Process[0].Mem = p.Process[0].GetMem(p.Process[0].Pid)
 		for _, instance := range p.Process {
 			pids = append(pids, strconv.Itoa(instance.Pid))
 		}
 
-		result += fmt.Sprintf("%s\t%s\t%s\t%s\t%s\n", p.ProjectName, p.Network[0].Gw, p.Network[0].Ip, p.Network[0].Mac, tools.Join(pids, ", "))
+		result += fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\n", p.ProjectName, p.Network[0].Gw, p.Network[0].Ip,                           p.Process[0].Mem,tools.Join(pids, ", "),p.Network[0].Mac)
 
 		for i := 1; i < len(p.Network); i++ {
 			result += fmt.Sprintf("\t%s\t%s\t%s\n", p.Network[i].Gw, p.Network[i].Ip, p.Network[i].Mac)

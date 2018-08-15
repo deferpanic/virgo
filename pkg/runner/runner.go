@@ -7,6 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+        "log"
+        "strings"
+        "strconv"
 
 	"github.com/deferpanic/virgo/pkg/tools"
 )
@@ -25,6 +28,7 @@ type ExecRunner struct {
 	proc     *exec.Cmd
 	Detached bool
 	Pid      int
+        Mem      string
 }
 
 func NewExecRunner(stdout, stderr *os.File, detached bool) *ExecRunner {
@@ -79,6 +83,26 @@ func (r *ExecRunner) Exec(name string, args ...string) error {
 	r.Pid = r.proc.Process.Pid
 
 	return err
+}
+
+func (r *ExecRunner) GetMem(pid int) string {
+        var c string = "/bin/cat" 
+        out, err := exec.Command(c, "/proc/" + strconv.Itoa(pid) + "/smaps").Output()
+        if err != nil {
+          log.Fatal(err)
+        }
+        _ = err
+        var mem = strings.Split(string(out[:]), "\n")
+        var sum int = 0
+        for _, element := range mem {
+          var line = strings.Fields(element)
+          if (len(line) > 0 && line[0] == "Pss:") {
+            tmp, _ := strconv.Atoi(line[1])
+            sum = sum + tmp
+          }
+        }
+
+        return string(strconv.Itoa(sum) + "kB")
 }
 
 func (r *ExecRunner) Run(name string, args ...string) ([]byte, error) {
