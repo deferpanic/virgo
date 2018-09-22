@@ -2,14 +2,14 @@ package depcheck
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/deferpanic/virgo/pkg/runner"
-	"github.com/deferpanic/virgo/pkg/tools"
 )
 
 // supportedDarwin contains the list of known osx versions that work
-var supportedDarwin = []string{"10.11.4", "10.11.5", "10.11.6", "10.12", "10.12.2", "10.12.3", "10.12.6", "10.13.1", "10.13.3"}
+const minDarwinSupported = "10.11.4"
 
 // darwinFW contains the known list of osx versions that need the
 // fw.enable sysctl setting
@@ -95,16 +95,79 @@ func (d DepCehck) OsCheck() (string, error) {
 
 	// hack for dry-run mode
 	if _, ok := d.r.(runner.DryRunner); ok {
-		out = []byte(supportedDarwin[0])
+		out = []byte(minDarwinSupported)
 	}
 
 	version := strings.TrimSpace(string(out))
 
-	for i, _ := range supportedDarwin {
-		if supportedDarwin[i] == version {
-			return version, nil
-		}
+	// Check if we're above or equal to the minimum Darwin version
+	if IsValidDarwin(version) {
+		return version, nil
 	}
 
-	return "", fmt.Errorf("You are running OS X version %s\nThis application is only tested on versions: %s\npf_ctl is used. If using an earlier osx you might need to use natd or contribute a patch.\n", version, tools.Join(supportedDarwin, ", "))
+	return "", fmt.Errorf("You are running OS X version %s\nThis application is only supports OS X version %s or higher\npf_ctl is used. If using an earlier osx you might need to use natd or contribute a patch.\n", version, minDarwinSupported)
+}
+
+func getVersionParts(ver string) []int {
+	var parts []int
+	for _, part := range strings.Split(ver, ".") {
+		partInt, err := strconv.Atoi(part)
+		if err != nil {
+			return []int{}
+		}
+		parts = append(parts, partInt)
+	}
+
+	// Normalize to x.y.z version parts
+	switch len(parts) {
+	case 2:
+		parts = append(parts, 0)
+	case 1:
+		parts = append(parts, 0, 0)
+	}
+
+	return parts
+}
+
+// IsValidDarwin returns whether or not you are using a supported Darwin version.
+func IsValidDarwin(ver string) bool {
+	userVersionParts := getVersionParts(ver)
+	minVersionParts := getVersionParts(minDarwinSupported)
+
+	// Ensure versions are correctly formatted
+	if len(minVersionParts) != 3 || len(userVersionParts) != 3 {
+		return false
+	}
+
+	switch {
+	// Below supported major version
+	case userVersionParts[0] < minVersionParts[0]:
+		return false
+
+	// Above supported major version
+	case userVersionParts[0] > minVersionParts[0]:
+		return true
+
+	// Check for for minor/patch versions.
+	default:
+		switch {
+		// Below minimum minor for minimum major.
+		case userVersionParts[1] < minVersionParts[1]:
+			return false
+
+		// Above minimum minor for minimum major.
+		case userVersionParts[1] > minVersionParts[1]:
+			return true
+
+		// If on lowest major and minor version, make sure at least on latest patch
+		default:
+			if userVersionParts[2] >= minVersionParts[2] {
+				return true
+			}
+
+			// Below latest patch
+			return false
+
+		}
+	}
 }
